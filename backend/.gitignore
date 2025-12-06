@@ -1,0 +1,8 @@
+node_modules/
+.env
+uploads/
+*.xlsx
+*.log
+.DS_Store
+package-lock.json
+.railway/

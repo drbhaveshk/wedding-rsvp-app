@@ -1,0 +1,20 @@
+# Server Configuration
+PORT=3001
+
+# Email Configuration (Gmail)
+EMAIL_USER=bk13101983@gmail.com
+EMAIL_PASS=bpxg asgx txvf oyjc
+
+# Notification Email (where you want to receive RSVP updates)
+NOTIFICATION_EMAIL=bk13101983@gmail.com
+
+# WhatsApp API (Meta/Facebook)
+META_PHONE_NUMBER_ID=your-phone-number-id
+META_ACCESS_TOKEN=your-access-token
+META_WEBHOOK_VERIFY_TOKEN=your-webhook-verify-token
+
+# Database (if using MongoDB)
+MONGODB_URI=mongodb://localhost:27017/wedding-rsvp
+
+# Frontend URL (for CORS)
+FRONTEND_URL=http://localhost:3000
