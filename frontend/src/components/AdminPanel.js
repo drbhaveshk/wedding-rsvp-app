@@ -85,7 +85,7 @@ export default function AdminPanel() {
 
     const sampleGuest = guests[0];
     // Replace {1} placeholder with actual guest name
-    const personalizedMessage = customMessage.replace(/{1}/gi, sampleGuest.name);
+    const personalizedMessage = customMessage.replace(/\{1}/gi, sampleGuest.name);
 
     setPreviewMessage(personalizedMessage);
     setShowPreview(true);
@@ -114,7 +114,7 @@ export default function AdminPanel() {
       
       try {
         // Replace {1} with actual guest name
-        const personalizedMessage = customMessage.replace(/{1}/gi, guest.name);
+        const personalizedMessage = customMessage.replace(/\{1}/gi, guest.name);
 
         // Prepare form data for file upload
         const formData = new FormData();
