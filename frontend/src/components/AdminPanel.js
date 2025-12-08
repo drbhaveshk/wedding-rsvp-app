@@ -84,8 +84,8 @@ export default function AdminPanel() {
     }
 
     const sampleGuest = guests[0];
-    // Replace {name} placeholder with actual guest name
-    const personalizedMessage = customMessage.replace(/{name}/gi, sampleGuest.name);
+    // Replace {1} placeholder with actual guest name
+    const personalizedMessage = customMessage.replace(/{1}/gi, sampleGuest.name);
 
     setPreviewMessage(personalizedMessage);
     setShowPreview(true);
@@ -113,8 +113,8 @@ export default function AdminPanel() {
       const guest = guests[i];
       
       try {
-        // Replace {name} with actual guest name
-        const personalizedMessage = customMessage.replace(/{name}/gi, guest.name);
+        // Replace {1} with actual guest name
+        const personalizedMessage = customMessage.replace(/{1}/gi, guest.name);
 
         // Prepare form data for file upload
         const formData = new FormData();
@@ -315,7 +315,7 @@ export default function AdminPanel() {
                   <h3 className="text-xl font-bold text-gray-800 mb-4">Custom Message</h3>
                   <div className="space-y-3">
                     <textarea
-                      placeholder="Write your custom invitation message here...&#10;&#10;Use {name} to personalize with guest name.&#10;&#10;Example:&#10;🎉 Wedding Invitation 🎉&#10;&#10;Dear {name},&#10;&#10;You are cordially invited to celebrate our special day!&#10;&#10;Date: 15th February 2025&#10;Time: 6:00 PM&#10;Venue: Grand Hotel, Mumbai&#10;&#10;We look forward to celebrating with you! 💕"
+                      placeholder="Write your custom invitation message here...&#10;&#10;Use {1} to personalize with guest name.&#10;&#10;Example:&#10;🎉 Wedding Invitation 🎉&#10;&#10;Dear {name},&#10;&#10;You are cordially invited to celebrate our special day!&#10;&#10;Date: 15th February 2025&#10;Time: 6:00 PM&#10;Venue: Grand Hotel, Mumbai&#10;&#10;We look forward to celebrating with you! 💕"
                       value={customMessage}
                       onChange={(e) => setCustomMessage(e.target.value)}
                       rows="12"
