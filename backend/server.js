@@ -50,10 +50,12 @@ const upload = multer({
 
 // Email configuration
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: process.env.SMTP_HOST || "smtp.resend.com",
+  port: process.env.SMTP_PORT || 587,
+  secure: false, // Resend uses TLS on 587
   auth: {
-    user: process.env.EMAIL_USER || 'your-email@gmail.com',
-    pass: process.env.EMAIL_PASS || 'your-app-password'
+    user: process.env.SMTP_USER, // Resend SMTP Username
+    pass: process.env.SMTP_PASS  // Resend SMTP Password
   }
 });
 
