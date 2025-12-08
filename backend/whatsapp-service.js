@@ -141,7 +141,7 @@ ${weddingDetails.coupleName}`;
 }
 
 // Send WhatsApp invitation with template message (recommended for production)
-async function sendWhatsAppTemplateInvitation(phoneNumber, guestName, weddingDetails, templateName = 'wedding_invitation') {
+async function sendWhatsAppTemplateInvitation(phoneNumber, guestName, weddingDetails, templateName = 'wedding_invite') {
   try {
     const guestId = Date.now().toString(36) + Math.random().toString(36).substr(2);
     const rsvpLink = generateRSVPLink(guestId, guestName);
