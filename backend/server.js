@@ -485,11 +485,11 @@ app.post('/webhook', (req, res) => {
       console.log("Received WhatsApp message:", msg);
 
       incomingMessages.push({
-        name: msg.name,
-        phoneNumber: msg.from,
-        message: msg.messageBody,
-        timestamp: Number(msg.timestamp) * 1000, // convert seconds → ms
-        messageId: msg.messageId
+       name: msg.name,
+       phoneNumber: msg.from,
+       message: msg.messageBody || msg.message,  // ensures fallback
+       timestamp: Number(msg.timestamp) * 1000,
+       messageId: msg.messageId
       });
     }
 
