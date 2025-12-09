@@ -9,8 +9,7 @@ const fs = require('fs').promises;
 const path = require('path');
 
 const { 
-  sendWhatsAppInvitation,
-  sendWhatsAppTemplateInvitation,
+  sendWhatsAppInvitation, 
   sendRSVPConfirmation,
   sendMediaInvitation,
   sendWhatsAppTextMessage,
@@ -61,6 +60,7 @@ const transporter = nodemailer.createTransport({
 // In-memory storage
 let rsvpData = [];
 let serialNumber = 1;
+let incomingMessages = []; // Store incoming WhatsApp messages
 
 // Excel file path
 const EXCEL_FILE_PATH = path.join(__dirname, 'wedding-rsvp-data.xlsx');
@@ -492,39 +492,49 @@ app.post('/webhook', (req, res) => {
 });
 
 // Send WhatsApp invitation
-app.post('/api/whatsapp/send-template-invitation', async (req, res) => {
+app.post('/api/whatsapp/send-invitation', upload.single('invitationFile'), async (req, res) => {
   try {
-    const { phoneNumber, guestName, templateName, templateLanguage } = req.body;
-
-    if (!phoneNumber || !guestName || !templateName) {
+    console.log('WhatsApp invitation request received');
+    console.log('Body:', req.body);
+    console.log('File:', req.file);
+    
+    const { phoneNumber, guestName, message } = req.body;
+    
+    if (!phoneNumber || !guestName || !message) {
+      console.log('Validation failed - missing fields');
       return res.status(400).json({
         success: false,
-        message: 'Missing required fields: phoneNumber, guestName, templateName'
+        message: 'Missing required fields: phoneNumber, guestName, or message'
       });
     }
 
     if (!process.env.META_PHONE_NUMBER_ID || !process.env.META_ACCESS_TOKEN) {
+      console.log('WhatsApp API not configured');
       return res.json({
         success: false,
-        error: 'WhatsApp API credentials not configured'
+        error: 'WhatsApp API credentials not configured. Please add META_PHONE_NUMBER_ID and META_ACCESS_TOKEN to .env file'
       });
     }
 
-    // Use the function in whatsapp-service.js
-    const result = await sendWhatsAppTemplateInvitation(
-      phoneNumber,
-      guestName,
-      templateName,
-      templateLanguage || 'en'
-    );
+    let result;
 
+    if (req.file) {
+      console.log('Sending message with attachment:', req.file.filename);
+      const mediaUrl = `${process.env.FRONTEND_URL}/uploads/invitations/${req.file.filename}`;
+      const mediaType = req.file.mimetype.startsWith('image/') ? 'image' : 'document';
+      result = await sendMediaInvitation(phoneNumber, mediaUrl, message, mediaType);
+    } else {
+      console.log('Sending text-only message');
+      result = await sendWhatsAppTextMessage(phoneNumber, message);
+    }
+    
+    console.log('WhatsApp send result:', result);
     res.json(result);
-
   } catch (error) {
-    console.error('Error sending template invitation:', error);
+    console.error('Error in WhatsApp invitation endpoint:', error);
     res.status(500).json({
       success: false,
-      message: 'Error sending template invitation',
+      message: 'Error sending WhatsApp invitation',
       error: error.message
     });
   }
