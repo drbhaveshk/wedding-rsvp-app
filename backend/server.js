@@ -9,7 +9,8 @@ const fs = require('fs').promises;
 const path = require('path');
 
 const { 
-  sendWhatsAppInvitation, 
+  sendWhatsAppInvitation,
+  sendWhatsAppTemplateInvitation,
   sendRSVPConfirmation,
   sendMediaInvitation,
   sendWhatsAppTextMessage,
@@ -492,29 +493,34 @@ app.post('/webhook', (req, res) => {
 });
 
 // Send WhatsApp invitation
-app.post('/api/whatsapp/send-invitation', upload.single('invitationFile'), async (req, res) => {
+app.post('/api/whatsapp/send-template-invitation', async (req, res) => {
   try {
-    console.log('WhatsApp invitation request received');
-    console.log('Body:', req.body);
-    console.log('File:', req.file);
-    
-    const { phoneNumber, guestName, message } = req.body;
-    
-    if (!phoneNumber || !guestName || !message) {
-      console.log('Validation failed - missing fields');
+    const { phoneNumber, guestName, templateName, templateLanguage } = req.body;
+
+    if (!phoneNumber || !guestName || !templateName) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required fields: phoneNumber, guestName, or message'
+        message: 'Missing required fields: phoneNumber, guestName, templateName'
       });
     }
 
-    if (!process.env.META_PHONE_NUMBER_ID || !process.env.META_ACCESS_TOKEN) {
-      console.log('WhatsApp API not configured');
-      return res.json({
-        success: false,
-        error: 'WhatsApp API credentials not configured. Please add META_PHONE_NUMBER_ID and META_ACCESS_TOKEN to .env file'
-      });
-    }
+    const result = await sendWhatsAppTemplateInvitation(
+      phoneNumber,
+      guestName,
+      templateName,
+      templateLanguage || 'en'
+    );
+
+    return res.json(result);
+
+  } catch (error) {
+    console.error("Error sending template invitation:", error);
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
 
     let result;
 
