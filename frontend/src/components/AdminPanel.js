@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import * as XLSX from "xlsx";
 import { Upload, Send, Users, CheckCircle, XCircle, Clock, Download, Eye } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 export default function AdminPanel() {
   const [guests, setGuests] = useState([]);
@@ -513,8 +513,6 @@ export default function AdminPanel() {
           </div>
         )}
       </div>
-
-      {/* Include SheetJS library */}
     </div>
   );
 }
