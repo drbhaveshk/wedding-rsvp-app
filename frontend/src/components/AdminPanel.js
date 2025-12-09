@@ -34,23 +34,25 @@ export default function AdminPanel() {
 
   // Fetch messages when Messages tab is opened
   useEffect(() => {
-    if (activeTab === 'messages') {
-      fetchIncomingMessages();
-    }
-  }, [activeTab]);
+  if (activeTab !== 'messages') return;
+
+  const loadMessages = async () => {
+    await fetchIncomingMessages();
+  };
+
+  loadMessages();
+}, [activeTab]);
 
   // Auto-refresh messages every 30 seconds when on Messages tab
   useEffect(() => {
-    let interval;
-    if (activeTab === 'messages') {
-      interval = setInterval(() => {
-        fetchIncomingMessages();
-      }, 30000); // 30 seconds
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [activeTab]);
+  if (activeTab !== 'messages') return;
+
+  const interval = setInterval(() => {
+    fetchIncomingMessages();
+  }, 30000);
+
+  return () => clearInterval(interval);
+}, [activeTab]);
 
   // Handle Excel file upload
   const handleFileUpload = async (e) => {
