@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Upload, Send, Users, CheckCircle, XCircle, Clock, Download, Eye, MessageSquare, RefreshCw } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -17,34 +17,29 @@ export default function AdminPanel() {
   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
   // Fetch incoming messages
-  const fetchIncomingMessages = async () => {
-    setLoadingMessages(true);
-    try {
-      const response = await fetch(`${API_URL}/api/whatsapp/incoming-messages`);
-      const result = await response.json();
-      
-      if (result.success) {
-        setIncomingMessages(result.messages);
-      }
-    } catch (error) {
-      console.error('Error fetching messages:', error);
+  const fetchIncomingMessages = useCallback(async () => {
+  setLoadingMessages(true);
+  try {
+    const response = await fetch(`${API_URL}/api/whatsapp/incoming-messages`);
+    const result = await response.json();
+    
+    if (result.success) {
+      setIncomingMessages(result.messages);
     }
-    setLoadingMessages(false);
-  };
+  } catch (error) {
+    console.error('Error fetching messages:', error);
+  }
+  setLoadingMessages(false);
+}, [API_URL]);
 
   // Fetch messages when Messages tab is opened
   useEffect(() => {
-  if (activeTab !== 'messages') return;
+  if (activeTab === 'messages') {
+    fetchIncomingMessages();
+  }
+}, [activeTab, fetchIncomingMessages]);
 
-  const loadMessages = async () => {
-    await fetchIncomingMessages();
-  };
-
-  loadMessages();
-}, [activeTab]);
-
-  // Auto-refresh messages every 30 seconds when on Messages tab
-  useEffect(() => {
+useEffect(() => {
   if (activeTab !== 'messages') return;
 
   const interval = setInterval(() => {
@@ -52,7 +47,24 @@ export default function AdminPanel() {
   }, 30000);
 
   return () => clearInterval(interval);
-}, [activeTab]);
+}, [activeTab, fetchIncomingMessages]);
+
+  // Auto-refresh messages every 30 seconds when on Messages tab
+  useEffect(() => {
+  if (activeTab === 'messages') {
+    fetchIncomingMessages();
+  }
+}, [activeTab, fetchIncomingMessages]);
+
+useEffect(() => {
+  if (activeTab !== 'messages') return;
+
+  const interval = setInterval(() => {
+    fetchIncomingMessages();
+  }, 30000);
+
+  return () => clearInterval(interval);
+}, [activeTab, fetchIncomingMessages]);
 
   // Handle Excel file upload
   const handleFileUpload = async (e) => {
