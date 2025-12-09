@@ -524,7 +524,9 @@ useEffect(() => {
                               </span>
                             </div>
                             <div className="bg-white border border-gray-300 rounded-lg p-3 mb-2">
-                              <p className="text-gray-800 whitespace-pre-wrap">{message.message}</p>
+                              <p className="text-gray-800 whitespace-pre-wrap">
+                              {message.messagebody || "empty message"}
+                              </p>
                             </div>
                             <div className="flex items-center gap-4 text-xs text-gray-500">
                               <span>📅 {new Date(message.timestamp).toLocaleDateString()}</span>
