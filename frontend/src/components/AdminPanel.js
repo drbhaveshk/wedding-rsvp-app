@@ -1,55 +1,17 @@
 import React, { useState } from 'react';
-import * as XLSX from "xlsx";
-import { Upload, Send, Users, CheckCircle, XCircle, Clock, Download, Eye, MessageSquare } from 'lucide-react';
+import { Upload, Send, Users, CheckCircle, XCircle, Clock, Download, Eye } from 'lucide-react';
 
 export default function AdminPanel() {
   const [guests, setGuests] = useState([]);
-  const [customMessage, setCustomMessage] = useState('');
-  const [invitationFile, setInvitationFile] = useState(null);
-  const [invitationPreview, setInvitationPreview] = useState('');
+  const [templateName, setTemplateName] = useState('');
+  const [templateLanguage, setTemplateLanguage] = useState('en');
   const [sending, setSending] = useState(false);
   const [sendResults, setSendResults] = useState([]);
   const [activeTab, setActiveTab] = useState('upload');
-  const [previewMessage, setPreviewMessage] = useState('');
+  const [previewGuest, setPreviewGuest] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
 
-  // Handle invitation file upload
-  const handleInvitationUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    // Validate file type
-    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
-    if (!validTypes.includes(file.type)) {
-      alert('Please upload only JPG, PNG, or PDF files');
-      return;
-    }
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      alert('File size should be less than 5MB');
-      return;
-    }
-
-    setInvitationFile(file);
-
-    // Create preview for images
-    if (file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setInvitationPreview(reader.result);
-      };
-      reader.readAsDataURL(file);
-    } else {
-      setInvitationPreview('pdf');
-    }
-  };
-
-  // Remove invitation file
-  const removeInvitationFile = () => {
-    setInvitationFile(null);
-    setInvitationPreview('');
-  };
+  // Handle Excel file upload
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -76,25 +38,21 @@ export default function AdminPanel() {
     }
   };
 
-  // Generate preview message
-  const generatePreviewMessage = () => {
-    if (!customMessage.trim() || guests.length === 0) {
-      alert('Please write a custom message and upload guest list first');
+  // Generate preview
+  const generatePreview = () => {
+    if (!templateName.trim() || guests.length === 0) {
+      alert('Please enter template name and upload guest list first');
       return;
     }
 
-    const sampleGuest = guests[0];
-    // Replace {1} placeholder with actual guest name
-    const personalizedMessage = customMessage.replace(/\{1}/gi, sampleGuest.name);
-
-    setPreviewMessage(personalizedMessage);
+    setPreviewGuest(guests[0]);
     setShowPreview(true);
   };
 
-  // Send invitations to all guests
+  // Send invitations to all guests using Meta template
   const sendInvitations = async () => {
-    if (!customMessage.trim()) {
-      alert('Please write a custom message');
+    if (!templateName.trim()) {
+      alert('Please enter Meta WhatsApp template name');
       return;
     }
 
@@ -113,24 +71,19 @@ export default function AdminPanel() {
       const guest = guests[i];
       
       try {
-        // Replace {1} with actual guest name
-        const personalizedMessage = customMessage.replace(/\{1}/gi, guest.name);
+        console.log(`Sending template to: ${guest.name} (${guest.phoneNumber})`);
 
-        // Prepare form data for file upload
-        const formData = new FormData();
-        formData.append('phoneNumber', guest.phoneNumber);
-        formData.append('guestName', guest.name);
-        formData.append('message', personalizedMessage);
-        
-        if (invitationFile) {
-          formData.append('invitationFile', invitationFile);
-        }
-
-        console.log('Sending to:', `${API_URL}/api/whatsapp/send-invitation`);
-
-        const response = await fetch(`${API_URL}/api/whatsapp/send-invitation`, {
+        const response = await fetch(`${API_URL}/api/whatsapp/send-template-invitation`, {
           method: 'POST',
-          body: formData
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            phoneNumber: guest.phoneNumber,
+            guestName: guest.name,
+            templateName: templateName,
+            templateLanguage: templateLanguage
+          })
         });
 
         if (!response.ok) {
@@ -211,10 +164,10 @@ export default function AdminPanel() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
-                <MessageSquare className="w-8 h-8 text-pink-500" />
+                <Send className="w-8 h-8 text-pink-500" />
                 Wedding Invitation Manager
               </h1>
-              <p className="text-gray-600 mt-2">Upload guest list and send WhatsApp invitations</p>
+              <p className="text-gray-600 mt-2">Upload guest list and send WhatsApp invitations using Meta templates</p>
             </div>
             <button
               onClick={downloadTemplate}
@@ -281,7 +234,7 @@ export default function AdminPanel() {
               }`}
             >
               <Upload className="w-5 h-5 inline mr-2" />
-              Upload & Configure
+              Configure & Upload
             </button>
             <button
               onClick={() => setActiveTab('guests')}
@@ -308,79 +261,58 @@ export default function AdminPanel() {
           </div>
 
           <div className="p-6">
-            {/* Upload & Configure Tab */}
+            {/* Configure & Upload Tab */}
             {activeTab === 'upload' && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-xl font-bold text-gray-800 mb-4">Custom Message</h3>
-                  <div className="space-y-3">
-                    <textarea
-                      placeholder="Write your custom invitation message here...&#10;&#10;Use {1} to personalize with guest name.&#10;&#10;Example:&#10;🎉 Wedding Invitation 🎉&#10;&#10;Dear {name},&#10;&#10;You are cordially invited to celebrate our special day!&#10;&#10;Date: 15th February 2025&#10;Time: 6:00 PM&#10;Venue: Grand Hotel, Mumbai&#10;&#10;We look forward to celebrating with you! 💕"
-                      value={customMessage}
-                      onChange={(e) => setCustomMessage(e.target.value)}
-                      rows="12"
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-pink-400 focus:outline-none resize-none font-mono text-sm"
-                    />
-                    <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
-                      <p className="text-sm text-blue-800">
-                        <strong>💡 Tip:</strong> Use <code className="bg-blue-100 px-2 py-1 rounded">{'{name}'}</code> in your message to automatically insert each guest's name.
-                      </p>
+                  <h3 className="text-xl font-bold text-gray-800 mb-4">Meta WhatsApp Template Configuration</h3>
+                  <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 mb-4">
+                    <p className="text-sm text-blue-800">
+                      <strong>📝 Important:</strong> Enter the exact name of your approved Meta WhatsApp template. 
+                      The template should have a variable <code className="bg-blue-100 px-2 py-1 rounded">{'{1}'}</code> which will be replaced with the guest name.
+                    </p>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Template Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g., wedding_invitation"
+                        value={templateName}
+                        onChange={(e) => setTemplateName(e.target.value)}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-pink-400 focus:outline-none"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Must match your approved template name in Meta</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Template Language
+                      </label>
+                      <select
+                        value={templateLanguage}
+                        onChange={(e) => setTemplateLanguage(e.target.value)}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-pink-400 focus:outline-none"
+                      >
+                        <option value="en">English</option>
+                        <option value="hi">Hindi (हिंदी)</option>
+                        <option value="en_US">English (US)</option>
+                        <option value="en_GB">English (UK)</option>
+                      </select>
                     </div>
                   </div>
-                </div>
 
-                <div>
-                  <h3 className="text-xl font-bold text-gray-800 mb-4">Attach Invitation Card (Optional)</h3>
-                  {!invitationFile ? (
-                    <div className="border-4 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-pink-400 transition-colors">
-                      <Upload className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                      <label className="cursor-pointer">
-                        <span className="text-lg text-gray-600">
-                          Click to upload invitation card (JPG, PNG, or PDF)
-                        </span>
-                        <input
-                          type="file"
-                          accept=".jpg,.jpeg,.png,.pdf"
-                          onChange={handleInvitationUpload}
-                          className="hidden"
-                        />
-                      </label>
-                      <p className="text-sm text-gray-500 mt-2">
-                        Maximum file size: 5MB
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="border-2 border-green-300 rounded-xl p-6 bg-green-50">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start gap-4">
-                          {invitationPreview === 'pdf' ? (
-                            <div className="w-24 h-24 bg-red-100 rounded-lg flex items-center justify-center">
-                              <span className="text-red-600 font-bold text-2xl">PDF</span>
-                            </div>
-                          ) : (
-                            <img 
-                              src={invitationPreview} 
-                              alt="Invitation preview" 
-                              className="w-24 h-24 object-cover rounded-lg border-2 border-gray-200"
-                            />
-                          )}
-                          <div>
-                            <p className="font-semibold text-gray-800">{invitationFile.name}</p>
-                            <p className="text-sm text-gray-600">
-                              {(invitationFile.size / 1024).toFixed(2)} KB
-                            </p>
-                            <p className="text-sm text-green-600 mt-1">✓ Ready to send</p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={removeInvitationFile}
-                          className="text-red-500 hover:text-red-700 p-2"
-                        >
-                          <XCircle className="w-6 h-6" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                  <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4 mt-4">
+                    <p className="text-sm text-yellow-800">
+                      <strong>⚠️ Before sending:</strong>
+                      <br/>1. Make sure your template is approved in Meta Business Manager
+                      <br/>2. Template must have variable <code className="bg-yellow-100 px-2 py-1 rounded">{'{1}'}</code> for guest name
+                      <br/>3. Test with 1-2 numbers first before bulk sending
+                    </p>
+                  </div>
                 </div>
 
                 <div>
@@ -406,17 +338,17 @@ export default function AdminPanel() {
 
                 <div className="flex gap-4">
                   <button
-                    onClick={generatePreviewMessage}
-                    disabled={guests.length === 0 || !customMessage.trim()}
+                    onClick={generatePreview}
+                    disabled={guests.length === 0 || !templateName.trim()}
                     className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                   >
                     <Eye className="w-5 h-5" />
-                    Preview Message
+                    Preview Template
                   </button>
                   
                   <button
                     onClick={sendInvitations}
-                    disabled={sending || guests.length === 0 || !customMessage.trim()}
+                    disabled={sending || guests.length === 0 || !templateName.trim()}
                     className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-pink-500 to-purple-500 text-white font-semibold rounded-lg hover:from-pink-600 hover:to-purple-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Send className="w-5 h-5" />
@@ -533,11 +465,11 @@ export default function AdminPanel() {
         </div>
 
         {/* Preview Modal */}
-        {showPreview && (
+        {showPreview && previewGuest && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-2xl font-bold text-gray-800">Message Preview</h3>
+                <h3 className="text-2xl font-bold text-gray-800">Template Preview</h3>
                 <button
                   onClick={() => setShowPreview(false)}
                   className="text-gray-500 hover:text-gray-700"
@@ -545,8 +477,30 @@ export default function AdminPanel() {
                   <XCircle className="w-6 h-6" />
                 </button>
               </div>
-              <div className="bg-gray-50 rounded-lg p-6 whitespace-pre-wrap font-mono text-sm">
-                {previewMessage}
+              <div className="bg-blue-50 rounded-lg p-6 mb-4">
+                <p className="text-sm text-blue-800 mb-2">
+                  <strong>Template Name:</strong> <code className="bg-blue-100 px-2 py-1 rounded">{templateName}</code>
+                </p>
+                <p className="text-sm text-blue-800 mb-2">
+                  <strong>Language:</strong> {templateLanguage}
+                </p>
+                <p className="text-sm text-blue-800">
+                  <strong>Sample Guest:</strong> {previewGuest.name}
+                </p>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-6 border-2 border-gray-200">
+                <p className="text-sm text-gray-700 mb-2">
+                  <strong>What will be sent:</strong>
+                </p>
+                <p className="text-sm text-gray-600">
+                  Your approved Meta template "<strong>{templateName}</strong>" will be sent to all guests.
+                  <br/>
+                  <br/>
+                  The variable <code className="bg-gray-200 px-2 py-1 rounded">{'{1}'}</code> in your template will be replaced with: <strong>{previewGuest.name}</strong>
+                  <br/>
+                  <br/>
+                  <em className="text-gray-500">Note: The actual message content is controlled by your Meta template.</em>
+                </p>
               </div>
               <button
                 onClick={() => setShowPreview(false)}
