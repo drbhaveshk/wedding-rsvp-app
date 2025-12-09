@@ -492,7 +492,42 @@ app.post('/webhook', (req, res) => {
   }
 });
 
-// Send WhatsApp invitation
+// Send WhatsApp Invitation with optional media
+app.post('/api/whatsapp/send-invitation', upload.single('invitationFile'), async (req, res) => {
+  try {
+    const { phoneNumber, guestName, message } = req.body;
+
+    if (!phoneNumber || !guestName || !message) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: phoneNumber, guestName, message'
+      });
+    }
+
+    let result;
+
+    if (req.file) {
+      const mediaUrl = `${process.env.FRONTEND_URL}/uploads/invitations/${req.file.filename}`;
+      const mediaType = req.file.mimetype.startsWith('image/') ? 'image' : 'document';
+      result = await sendMediaInvitation(phoneNumber, mediaUrl, message, mediaType);
+    } else {
+      result = await sendWhatsAppTextMessage(phoneNumber, message);
+    }
+
+    res.json(result);
+
+  } catch (error) {
+    console.error('Error sending invitation:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error sending WhatsApp invitation',
+      error: error.message
+    });
+  }
+});
+
+
+// Send WhatsApp Template Invitation
 app.post('/api/whatsapp/send-template-invitation', async (req, res) => {
   try {
     const { phoneNumber, guestName, templateName, templateLanguage } = req.body;
@@ -517,30 +552,6 @@ app.post('/api/whatsapp/send-template-invitation', async (req, res) => {
     console.error("Error sending template invitation:", error);
     return res.status(500).json({
       success: false,
-      error: error.message
-    });
-  }
-});
-
-    let result;
-
-    if (req.file) {
-      console.log('Sending message with attachment:', req.file.filename);
-      const mediaUrl = `${process.env.FRONTEND_URL}/uploads/invitations/${req.file.filename}`;
-      const mediaType = req.file.mimetype.startsWith('image/') ? 'image' : 'document';
-      result = await sendMediaInvitation(phoneNumber, mediaUrl, message, mediaType);
-    } else {
-      console.log('Sending text-only message');
-      result = await sendWhatsAppTextMessage(phoneNumber, message);
-    }
-    
-    console.log('WhatsApp send result:', result);
-    res.json(result);
-  } catch (error) {
-    console.error('Error in WhatsApp invitation endpoint:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error sending WhatsApp invitation',
       error: error.message
     });
   }
