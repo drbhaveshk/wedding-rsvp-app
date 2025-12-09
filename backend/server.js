@@ -608,6 +608,24 @@ app.get('/api/whatsapp/incoming-messages', (req, res) => {
   }
 });
 
+// GET incoming WhatsApp messages
+app.get('/api/whatsapp/incoming-messages', (req, res) => {
+  res.set('Cache-Control', 'no-store'); // Disable caching
+
+  try {
+    return res.json({
+      success: true,
+      messages: incomingMessages   // return all stored messages
+    });
+  } catch (error) {
+    console.error("Error fetching incoming messages:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch messages"
+    });
+  }
+});
+
 // Initialize and start server
 async function startServer() {
   try {
