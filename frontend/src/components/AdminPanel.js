@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Upload, Send, Users, CheckCircle, XCircle, Clock, Download, Eye } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Upload, Send, Users, CheckCircle, XCircle, Clock, Download, Eye, MessageSquare, RefreshCw } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 export default function AdminPanel() {
@@ -11,6 +11,46 @@ export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState('upload');
   const [previewGuest, setPreviewGuest] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [incomingMessages, setIncomingMessages] = useState([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+
+  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+
+  // Fetch incoming messages
+  const fetchIncomingMessages = async () => {
+    setLoadingMessages(true);
+    try {
+      const response = await fetch(`${API_URL}/api/whatsapp/incoming-messages`);
+      const result = await response.json();
+      
+      if (result.success) {
+        setIncomingMessages(result.messages);
+      }
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+    }
+    setLoadingMessages(false);
+  };
+
+  // Fetch messages when Messages tab is opened
+  useEffect(() => {
+    if (activeTab === 'messages') {
+      fetchIncomingMessages();
+    }
+  }, [activeTab]);
+
+  // Auto-refresh messages every 30 seconds when on Messages tab
+  useEffect(() => {
+    let interval;
+    if (activeTab === 'messages') {
+      interval = setInterval(() => {
+        fetchIncomingMessages();
+      }, 30000); // 30 seconds
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [activeTab]);
 
   // Handle Excel file upload
   const handleFileUpload = async (e) => {
@@ -249,6 +289,17 @@ export default function AdminPanel() {
               Guest List ({guests.length})
             </button>
             <button
+              onClick={() => setActiveTab('messages')}
+              className={`flex-1 px-6 py-4 font-semibold transition-colors ${
+                activeTab === 'messages'
+                  ? 'bg-pink-500 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              <MessageSquare className="w-5 h-5 inline mr-2" />
+              Messages ({incomingMessages.length})
+            </button>
+            <button
               onClick={() => setActiveTab('results')}
               className={`flex-1 px-6 py-4 font-semibold transition-colors ${
                 activeTab === 'results'
@@ -411,6 +462,78 @@ export default function AdminPanel() {
                     </table>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Messages Tab */}
+            {activeTab === 'messages' && (
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-bold text-gray-800">Incoming WhatsApp Messages</h3>
+                  <button
+                    onClick={fetchIncomingMessages}
+                    disabled={loadingMessages}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-300"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${loadingMessages ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </button>
+                </div>
+
+                {loadingMessages && incomingMessages.length === 0 ? (
+                  <div className="text-center py-12">
+                    <RefreshCw className="w-16 h-16 mx-auto mb-4 text-gray-300 animate-spin" />
+                    <p className="text-gray-500">Loading messages...</p>
+                  </div>
+                ) : incomingMessages.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <MessageSquare className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                    <p>No messages received yet.</p>
+                    <p className="text-sm mt-2">Messages from guests will appear here.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {incomingMessages.map((message, index) => (
+                      <div
+                        key={index}
+                        className="bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <MessageSquare className="w-5 h-5 text-blue-600" />
+                              <p className="font-semibold text-gray-800">
+                                {message.name || 'Unknown'}
+                              </p>
+                              <span className="text-sm text-gray-500">
+                                {message.phoneNumber}
+                              </span>
+                            </div>
+                            <div className="bg-white rounded-lg p-3 mb-2">
+                              <p className="text-gray-800 whitespace-pre-wrap">{message.message}</p>
+                            </div>
+                            <div className="flex items-center gap-4 text-xs text-gray-500">
+                              <span>📅 {new Date(message.timestamp).toLocaleDateString()}</span>
+                              <span>🕐 {new Date(message.timestamp).toLocaleTimeString()}</span>
+                              {message.messageId && (
+                                <span className="text-xs bg-blue-100 px-2 py-1 rounded">
+                                  ID: {message.messageId.substring(0, 8)}...
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="mt-4 bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4">
+                  <p className="text-sm text-yellow-800">
+                    <strong>💡 Note:</strong> Messages are stored temporarily. Download important conversations for your records.
+                    Auto-refreshes every 30 seconds.
+                  </p>
+                </div>
               </div>
             )}
 
