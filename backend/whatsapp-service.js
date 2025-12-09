@@ -144,16 +144,13 @@ ${weddingDetails.coupleName}`;
 async function sendWhatsAppTemplateInvitation(phoneNumber, guestName, templateName = 'wedding_invitation', templateLanguage = 'en') {
   try {
     const formattedPhone = formatPhoneNumber(phoneNumber);
-    
-    console.log(`Sending template "${templateName}" to ${guestName} (${formattedPhone})`);
-    
-    // Template message with guest name as parameter
+
     const response = await axios.post(
       `${WHATSAPP_API_URL}/${PHONE_NUMBER_ID}/messages`,
       {
-        messaging_product: 'whatsapp',
+        messaging_product: "whatsapp",
         to: formattedPhone,
-        type: 'template',
+        type: "template",
         template: {
           name: templateName,
           language: {
@@ -161,41 +158,42 @@ async function sendWhatsAppTemplateInvitation(phoneNumber, guestName, templateNa
           },
           components: [
             {
-              type: 'body',
+              type: "header",
               parameters: [
                 {
-                  type: 'text',
-                  text: guestName
+                  type: "text",
+                  text: guestName  // your variable goes here
                 }
               ]
             }
+            // DO NOT add body parameters because your body has 0 variables
           ]
         }
       },
       {
         headers: {
-          'Authorization': `Bearer ${ACCESS_TOKEN}`,
-          'Content-Type': 'application/json'
+          Authorization: `Bearer ${ACCESS_TOKEN}`,
+          "Content-Type": "application/json"
         }
       }
     );
-    
+
     console.log(`✅ Template sent successfully to ${guestName}: ${response.data.messages[0].id}`);
-    
+
     return {
       success: true,
       messageId: response.data.messages[0].id,
-      guestName: guestName,
+      guestName,
       phoneNumber: formattedPhone
     };
-    
+
   } catch (error) {
     console.error(`❌ Error sending template to ${guestName}:`, error.response?.data || error.message);
     return {
       success: false,
       error: error.response?.data?.error?.message || error.message,
-      guestName: guestName,
-      phoneNumber: phoneNumber
+      guestName,
+      phoneNumber
     };
   }
 }
