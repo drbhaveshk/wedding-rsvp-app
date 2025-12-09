@@ -515,7 +515,6 @@ export default function AdminPanel() {
       </div>
 
       {/* Include SheetJS library */}
-      <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     </div>
   );
 }
