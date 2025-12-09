@@ -479,15 +479,23 @@ app.get('/webhook', (req, res) => {
 // Webhook handler
 app.post('/webhook', (req, res) => {
   try {
-    const message = handleWebhookMessage(req.body);
-    
-    if (message) {
-      console.log('Received WhatsApp message:', message);
+    const msg = handleWebhookMessage(req.body);
+
+    if (msg) {
+      console.log("Received WhatsApp message:", msg);
+
+      incomingMessages.push({
+        name: msg.name,
+        phoneNumber: msg.from,
+        message: msg.messageBody,
+        timestamp: Number(msg.timestamp) * 1000, // convert seconds → ms
+        messageId: msg.messageId
+      });
     }
-    
+
     res.sendStatus(200);
   } catch (error) {
-    console.error('Webhook error:', error);
+    console.error("Webhook error:", error);
     res.sendStatus(500);
   }
 });
