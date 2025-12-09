@@ -581,6 +581,33 @@ app.post('/api/whatsapp/send-confirmation', async (req, res) => {
   }
 });
 
+// GET recent incoming WhatsApp messages
+app.get('/api/whatsapp/incoming-messages', (req, res) => {
+  try {
+    const limit = Math.min(100, Number(req.query.limit) || 50);
+
+    const messages = incomingMessages.slice(0, limit).map(msg => ({
+      from: msg.from,
+      name: msg.name,
+      message: msg.messageBody,
+      timestamp: msg.timestamp,
+      type: msg.type
+    }));
+
+    res.json({
+      success: true,
+      messages
+    });
+
+  } catch (error) {
+    console.error("Error fetching incoming messages:", error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // Initialize and start server
 async function startServer() {
   try {
