@@ -141,13 +141,13 @@ ${weddingDetails.coupleName}`;
 }
 
 // Send WhatsApp invitation with template message (recommended for production)
-async function sendWhatsAppTemplateInvitation(phoneNumber, guestName, weddingDetails, templateName = 'wedding_invite') {
+async function sendWhatsAppTemplateInvitation(phoneNumber, guestName, templateName = 'wedding_invitation', templateLanguage = 'en') {
   try {
-    const guestId = Date.now().toString(36) + Math.random().toString(36).substr(2);
-    const rsvpLink = generateRSVPLink(guestId, guestName);
     const formattedPhone = formatPhoneNumber(phoneNumber);
     
-    // Template message with parameters
+    console.log(`Sending template "${templateName}" to ${guestName} (${formattedPhone})`);
+    
+    // Template message with guest name as parameter
     const response = await axios.post(
       `${WHATSAPP_API_URL}/${PHONE_NUMBER_ID}/messages`,
       {
@@ -157,51 +157,15 @@ async function sendWhatsAppTemplateInvitation(phoneNumber, guestName, weddingDet
         template: {
           name: templateName,
           language: {
-            code: 'en' // or 'hi' for Hindi
+            code: templateLanguage
           },
           components: [
-            {
-              type: 'header',
-              parameters: [
-                {
-                  type: 'text',
-                  text: guestName
-                }
-              ]
-            },
             {
               type: 'body',
               parameters: [
                 {
                   type: 'text',
-                  text: weddingDetails.brideName
-                },
-                {
-                  type: 'text',
-                  text: weddingDetails.groomName
-                },
-                {
-                  type: 'text',
-                  text: weddingDetails.date
-                },
-                {
-                  type: 'text',
-                  text: weddingDetails.time
-                },
-                {
-                  type: 'text',
-                  text: weddingDetails.venue
-                }
-              ]
-            },
-            {
-              type: 'button',
-              sub_type: 'url',
-              index: 0,
-              parameters: [
-                {
-                  type: 'text',
-                  text: guestId
+                  text: guestName
                 }
               ]
             }
@@ -216,20 +180,22 @@ async function sendWhatsAppTemplateInvitation(phoneNumber, guestName, weddingDet
       }
     );
     
-    console.log(`Template invitation sent to ${guestName}: ${response.data.messages[0].id}`);
+    console.log(`✅ Template sent successfully to ${guestName}: ${response.data.messages[0].id}`);
     
     return {
       success: true,
       messageId: response.data.messages[0].id,
-      guestId: guestId,
-      rsvpLink: rsvpLink
+      guestName: guestName,
+      phoneNumber: formattedPhone
     };
     
   } catch (error) {
-    console.error('Error sending template message:', error.response?.data || error.message);
+    console.error(`❌ Error sending template to ${guestName}:`, error.response?.data || error.message);
     return {
       success: false,
-      error: error.response?.data?.error?.message || error.message
+      error: error.response?.data?.error?.message || error.message,
+      guestName: guestName,
+      phoneNumber: phoneNumber
     };
   }
 }
