@@ -349,14 +349,24 @@ function handleWebhookMessage(body) {
         const from = message.from;
         const messageBody = message.text?.body || '';
         const messageId = message.id;
+        const timestamp = message.timestamp;
         
-        console.log(`Received message from ${from}: ${messageBody}`);
+        // Try to get contact name if available
+        let contactName = 'Unknown';
+        if (value.contacts && value.contacts[0]) {
+          const contact = value.contacts[0];
+          contactName = contact.profile?.name || contact.wa_id || 'Unknown';
+        }
+        
+        console.log(`📨 Message from ${contactName} (${from}): ${messageBody}`);
         
         return {
           from,
+          name: contactName,
           messageBody,
           messageId,
-          timestamp: message.timestamp
+          timestamp,
+          type: message.type
         };
       }
     }
