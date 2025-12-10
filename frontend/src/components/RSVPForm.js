@@ -63,8 +63,14 @@ export default function RSVPForm() {
 
   const handleSubmit = async () => {
     // Validate mandatory fields
-    if (!formData.guestName || !formData.numberOfGuests || !formData.attending) {
-      alert('Please fill all mandatory fields: Name, Number of Guests and Attendance');
+    if (!formData.guestName || !formData.attending) {
+      alert('Please fill all mandatory fields: Name and Attendance');
+      return;
+    }
+
+    // Only require number of guests if attending is 'yes' or 'maybe'
+    if ((formData.attending === 'yes' || formData.attending === 'maybe') && !formData.numberOfGuests) {
+      alert('Please enter the number of guests if you are attending or might attend');
       return;
     }
 
@@ -74,8 +80,8 @@ export default function RSVPForm() {
       return;
     }
 
-    // Validate number of guests
-    if (formData.numberOfGuests < 1) {
+    // Validate number of guests if provided
+    if (formData.numberOfGuests && formData.numberOfGuests < 1) {
       alert('Number of guests must be at least 1');
       return;
     }
@@ -102,7 +108,7 @@ export default function RSVPForm() {
         guestName: formData.guestName,
         arrivalDate: formData.arrivalDate || null,
         departureDate: formData.departureDate || null,
-        numberOfGuests: parseInt(formData.numberOfGuests),
+        numberOfGuests: formData.numberOfGuests ? parseInt(formData.numberOfGuests) : null,
         attending: formData.attending,
         aadharImages: base64Files,
         timestamp: new Date().toISOString()
@@ -156,8 +162,9 @@ export default function RSVPForm() {
     );
   }
 
-  // Check if Aadhar is required based on attendance
+  // Check if fields are required based on attendance
   const isAadharRequired = formData.attending === 'yes' || formData.attending === 'maybe';
+  const isGuestsRequired = formData.attending === 'yes' || formData.attending === 'maybe';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 py-8 px-4">
@@ -190,11 +197,11 @@ export default function RSVPForm() {
               />
             </div>
 
-            {/* Number of Guests - MANDATORY */}
+            {/* Number of Guests - Conditionally MANDATORY */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 <Users className="w-4 h-4 inline mr-2" />
-                Number of Guests <span className="text-red-500">*</span>
+                Number of Guests {isGuestsRequired ? <span className="text-red-500">*</span> : <span className="text-gray-400 text-xs">(Optional)</span>}
               </label>
               <input
                 type="number"
@@ -203,9 +210,14 @@ export default function RSVPForm() {
                 onChange={(e) => handleInputChange(e.target)}
                 min="1"
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-pink-400 focus:outline-none transition-colors"
-                placeholder="How many people will attend?"
-                required
+                placeholder={isGuestsRequired ? "How many people will attend?" : "How many people (optional)"}
+                required={isGuestsRequired}
               />
+              <p className="text-xs text-gray-500 mt-1">
+                {isGuestsRequired 
+                  ? 'Required if attending' 
+                  : 'Not required if you\'re not attending'}
+              </p>
             </div>
 
             {/* Date of Arrival - OPTIONAL */}
@@ -327,10 +339,12 @@ export default function RSVPForm() {
             {/* Mandatory Fields Note */}
             <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
               <p className="text-sm text-blue-800">
-                <strong>Note:</strong> Fields marked with <span className="text-red-500">*</span> are mandatory. 
-                {isAadharRequired 
-                  ? ' Aadhar documents are required if you are attending or might attend.'
-                  : ' Aadhar documents are not required if you are not attending.'}
+                <strong>Note:</strong> Fields marked with <span className="text-red-500">*</span> are mandatory.
+                {formData.attending === 'no' 
+                  ? ' Since you\'re not attending, only your name and attendance status are required.'
+                  : isGuestsRequired 
+                    ? ' Number of guests and Aadhar documents are required if you are attending or might attend.'
+                    : ' Arrival and departure dates are optional.'}
               </p>
             </div>
 
