@@ -329,11 +329,11 @@ app.post('/api/rsvp/submit', upload.array('aadharFiles', 10), async (req, res) =
       }
     }
     
-    if (aadharPaths.length === 0) {
-      console.log('❌ Validation failed: No Aadhar documents uploaded');
+    if (aadharPaths.length === 0 && (attending === 'yes' || attending === 'maybe')) {
+      console.log('❌ Validation failed: No Aadhar documents uploaded for attending guest');
       return res.status(400).json({ 
         success: false, 
-        message: 'At least one Aadhar document is required' 
+        message: 'At least one Aadhar document is required if you are attending or might attend' 
       });
     }
     
