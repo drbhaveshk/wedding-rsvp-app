@@ -62,7 +62,7 @@ export default function RSVPForm() {
   };
 
   const handleSubmit = async () => {
-    // Validate mandatory fields only
+    // Validate mandatory fields only (Aadhar NOT Required)
     if (!formData.guestName || !formData.numberOfGuests || !formData.attending) {
       alert('Please fill all mandatory fields: Name, Number of Guests and Attendance');
       return;
