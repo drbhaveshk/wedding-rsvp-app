@@ -272,17 +272,44 @@ app.post('/api/rsvp/submit', upload.array('aadharFiles', 10), async (req, res) =
     const { guestName, arrivalDate, departureDate, numberOfGuests, attending, aadharImages } = req.body;
     
     console.log('\n📝 ===== NEW RSVP SUBMISSION =====');
-    console.log('Guest Name:', guestName);
-    console.log('Number of Guests:', numberOfGuests);
-    
-    // Validate mandatory fields
-    if (!guestName || !numberOfGuests || !attending) {
-      console.log('❌ Validation failed: Missing mandatory fields');
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Missing mandatory fields: guestName, numberOfGuests, or attending' 
-      });
-    }
+console.log('Guest Name:', guestName);
+console.log('Number of Guests (raw):', numberOfGuests ?? 'Not provided');
+console.log('Attending:', attending);
+
+// Basic required fields
+if (!guestName || !attending) {
+  console.log('❌ Validation failed: guestName or attending missing');
+  return res.status(400).json({
+    success: false,
+    message: 'Guest name and attending status are required.'
+  });
+}
+
+// Normalize numberOfGuests for validation and storage
+// numberOfGuests can be sent as null (frontend sends null for "no") or as a number
+let parsedNumberOfGuests = null;
+if (numberOfGuests !== undefined && numberOfGuests !== null && numberOfGuests !== '') {
+  parsedNumberOfGuests = parseInt(numberOfGuests, 10);
+  if (Number.isNaN(parsedNumberOfGuests)) parsedNumberOfGuests = null;
+}
+
+// Determine conditional requirements
+const requiresGuests = attending === 'yes' || attending === 'maybe';
+const requiresAadhar = attending === 'yes' || attending === 'maybe';
+
+// If attending/maybe → numberOfGuests required and must be >= 1
+if (requiresGuests) {
+  if (parsedNumberOfGuests === null || parsedNumberOfGuests < 1) {
+    console.log('❌ Validation failed: numberOfGuests required for attending/maybe');
+    return res.status(400).json({
+      success: false,
+      message: 'Number of guests is required and must be at least 1 when attending or maybe.'
+    });
+  }
+} else {
+  // Not attending -> force 0 for Excel compatibility
+  parsedNumberOfGuests = 0;
+}
     
     // Process uploaded files
     let aadharPaths = [];
