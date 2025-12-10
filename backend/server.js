@@ -341,7 +341,7 @@ app.post('/api/rsvp/submit', upload.array('aadharFiles', 10), async (req, res) =
     const rsvpEntry = {
       serialNo: serialNumber++,
       guestName: guestName,
-      numberOfGuests: parseInt(numberOfGuests),
+      numberOfGuests: numberOfGuests ? parseInt(numberOfGuests) : 0,
       arrivalDate: arrivalDate || null,
       departureDate: departureDate || null,
       attending: attending,
