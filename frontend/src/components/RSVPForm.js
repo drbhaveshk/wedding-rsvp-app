@@ -87,16 +87,29 @@ export default function RSVPForm() {
         });
       });
 
-      const base64Files = await Promise.all(filePromises);
+      let base64Files = [];
 
-      const rsvpData = {
-        guestName: formData.guestName,
-        arrivalDate: formData.arrivalDate || null,
-        departureDate: formData.departureDate || null,
-        numberOfGuests: parseInt(formData.numberOfGuests),
-        attending: formData.attending,
-        aadharImages: base64Files,
-        timestamp: new Date().toISOString()
+if (formData.aadharFiles.length > 0) {
+  const filePromises = formData.aadharFiles.map(file => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  });
+
+  base64Files = await Promise.all(filePromises);
+}
+
+const rsvpData = {
+  guestName: formData.guestName,
+  arrivalDate: formData.arrivalDate || null,
+  departureDate: formData.departureDate || null,
+  numberOfGuests: parseInt(formData.numberOfGuests),
+  attending: formData.attending,
+  aadharImages: base64Files.length > 0 ? base64Files : null,
+  timestamp: new Date().toISOString()
       };
 
       console.log('RSVP Data:', rsvpData);
