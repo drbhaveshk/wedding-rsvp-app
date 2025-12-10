@@ -10,13 +10,24 @@ yarn.lock
 .env.production
 .env.test
 
-# Google Service Account Keys - CRITICAL: NEVER COMMIT THESE!
+cat > .gitignore << 'EOF'
+# Credentials - NEVER COMMIT!
 service-account-key.json
-*-service-account.json
-google-credentials.json
 *.json
 !package.json
 !package-lock.json
+.env
+.env.*
+
+# Other files
+node_modules/
+uploads/
+*.xlsx
+*.log
+EOF
+
+# Set file permissions (Unix/Mac only)
+chmod 600 service-account-key.json
 
 # Uploaded files
 uploads/
