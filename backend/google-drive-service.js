@@ -1,220 +1,152 @@
 // google-drive-service.js - Google Drive Upload Service
-const { google } = require('googleapis');
-const fs = require('fs');
-const path = require('path');
+const { google } = require("googleapis");
+const fs = require("fs");
 
 /**
- * Creates an authenticated Google Drive client using Service Account
+ * Create Google Drive client using Service Account credentials from env variable.
  */
 function createDriveClient() {
   try {
-    let credentials;
-    
-    // Option 1: Load from file path (RECOMMENDED)
-    if (process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH) {
-      const keyPath = path.resolve(process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH);
-      credentials = require(keyPath);
-      console.log('✅ Loaded credentials from file:', keyPath);
-    } 
-    // Option 2: Load from environment variable (NOT RECOMMENDED - security risk)
-    else if (process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
-      console.warn('⚠️  WARNING: Loading credentials from environment variable. Use GOOGLE_SERVICE_ACCOUNT_KEY_PATH instead for better security!');
-      credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
-    } 
-    else {
-      throw new Error('Missing Google credentials. Set either GOOGLE_SERVICE_ACCOUNT_KEY_PATH or GOOGLE_SERVICE_ACCOUNT_KEY');
+    if (!process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+      throw new Error(
+        "❌ Missing GOOGLE_SERVICE_ACCOUNT_JSON env variable. Add it in Railway."
+      );
     }
-    
+
+    const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
+
     const auth = new google.auth.GoogleAuth({
-      credentials: credentials,
-      scopes: ['https://www.googleapis.com/auth/drive.file'],
+      credentials,
+      scopes: ["https://www.googleapis.com/auth/drive.file"],
     });
 
-    return google.drive({ version: 'v3', auth });
+    return google.drive({ version: "v3", auth });
+
   } catch (error) {
-    console.error('❌ Error creating Drive client:', error);
+    console.error("❌ Failed to create Google Drive client:", error);
     throw error;
   }
 }
 
 /**
  * Uploads a file to Google Drive
- * @param {string} filePath - Path to the file to upload
- * @param {string} fileName - Name to give the file in Drive
- * @param {string} folderId - Optional folder ID where to upload the file
- * @returns {Promise<Object>} - File metadata including file ID and webViewLink
  */
 async function uploadToGoogleDrive(filePath, fileName, folderId = null) {
   try {
-    console.log('📤 Uploading file to Google Drive...');
-    console.log('   File:', fileName);
-    console.log('   Path:', filePath);
-    
+    console.log("📤 Uploading file to Google Drive...");
+    console.log("   File:", fileName);
+    console.log("   Path:", filePath);
+
     const drive = createDriveClient();
 
-    // File metadata
-    const fileMetadata = {
-      name: fileName,
-    };
+    const fileMetadata = { name: fileName };
+    if (folderId) fileMetadata.parents = [folderId];
 
-    // Add parent folder if specified
-    if (folderId) {
-      fileMetadata.parents = [folderId];
-      console.log('   Folder ID:', folderId);
-    }
-
-    // File content
     const media = {
-      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      mimeType:
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       body: fs.createReadStream(filePath),
     };
 
-    // Upload file
     const response = await drive.files.create({
       requestBody: fileMetadata,
-      media: media,
-      fields: 'id, name, webViewLink, webContentLink',
+      media,
+      fields: "id, name, webViewLink, webContentLink",
     });
 
-    console.log('✅ File uploaded successfully!');
-    console.log('   File ID:', response.data.id);
-    console.log('   View Link:', response.data.webViewLink);
+    console.log("✅ File uploaded:", response.data.name);
+    console.log("   File ID:", response.data.id);
+    console.log("   View:", response.data.webViewLink);
 
     return {
       success: true,
-      fileId: response.data.id,
-      fileName: response.data.name,
-      webViewLink: response.data.webViewLink,
-      webContentLink: response.data.webContentLink,
+      ...response.data,
     };
-
   } catch (error) {
-    console.error('❌ Error uploading to Google Drive:', error.message);
-    return {
-      success: false,
-      error: error.message,
-    };
+    console.error("❌ Error uploading to Google Drive:", error);
+    return { success: false, error: error.message };
   }
 }
 
 /**
- * Updates an existing file in Google Drive
- * @param {string} fileId - ID of the file to update
- * @param {string} filePath - Path to the new file content
- * @returns {Promise<Object>} - Updated file metadata
+ * Updates an existing file
  */
 async function updateFileInGoogleDrive(fileId, filePath) {
   try {
-    console.log('🔄 Updating file in Google Drive...');
-    console.log('   File ID:', fileId);
-    
-    const drive = createDriveClient();
+    console.log("🔄 Updating Google Drive file:", fileId);
 
+    const drive = createDriveClient();
     const media = {
-      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      mimeType:
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       body: fs.createReadStream(filePath),
     };
 
     const response = await drive.files.update({
-      fileId: fileId,
-      media: media,
-      fields: 'id, name, webViewLink, modifiedTime',
+      fileId,
+      media,
+      fields: "id, name, modifiedTime, webViewLink",
     });
 
-    console.log('✅ File updated successfully!');
-    console.log('   Modified:', response.data.modifiedTime);
+    console.log("✅ Updated:", response.data.modifiedTime);
 
     return {
       success: true,
-      fileId: response.data.id,
-      fileName: response.data.name,
-      webViewLink: response.data.webViewLink,
-      modifiedTime: response.data.modifiedTime,
+      ...response.data,
     };
-
   } catch (error) {
-    console.error('❌ Error updating file in Google Drive:', error.message);
-    return {
-      success: false,
-      error: error.message,
-    };
+    console.error("❌ Error updating file:", error);
+    return { success: false, error: error.message };
   }
 }
 
 /**
- * Makes a file publicly accessible (anyone with link can view)
- * @param {string} fileId - ID of the file to make public
- * @returns {Promise<Object>} - Result of the operation
+ * Make a file publicly viewable
  */
 async function makeFilePublic(fileId) {
   try {
-    console.log('🌐 Making file publicly accessible...');
-    
+    console.log("🌐 Making file public:", fileId);
+
     const drive = createDriveClient();
 
     await drive.permissions.create({
-      fileId: fileId,
-      requestBody: {
-        role: 'reader',
-        type: 'anyone',
-      },
+      fileId,
+      requestBody: { role: "reader", type: "anyone" },
     });
 
-    console.log('✅ File is now publicly accessible');
+    console.log("✅ File is now public");
 
-    return {
-      success: true,
-      message: 'File is now publicly accessible',
-    };
-
+    return { success: true, message: "File is now publicly accessible" };
   } catch (error) {
-    console.error('❌ Error making file public:', error.message);
-    return {
-      success: false,
-      error: error.message,
-    };
+    console.error("❌ Error making public:", error);
+    return { success: false, error: error.message };
   }
 }
 
 /**
- * Searches for a file by name in a specific folder
- * @param {string} fileName - Name of the file to search for
- * @param {string} folderId - Optional folder ID to search in
- * @returns {Promise<Object>} - File metadata if found
+ * Find a file by name
  */
 async function findFileByName(fileName, folderId = null) {
   try {
     const drive = createDriveClient();
 
     let query = `name='${fileName}' and trashed=false`;
-    if (folderId) {
-      query += ` and '${folderId}' in parents`;
-    }
+    if (folderId) query += ` and '${folderId}' in parents`;
 
-    const response = await drive.files.list({
+    const res = await drive.files.list({
       q: query,
-      fields: 'files(id, name, webViewLink)',
+      fields: "files(id, name, webViewLink)",
       pageSize: 1,
     });
 
-    if (response.data.files && response.data.files.length > 0) {
-      return {
-        success: true,
-        file: response.data.files[0],
-      };
+    if (res.data.files?.length) {
+      return { success: true, file: res.data.files[0] };
     }
 
-    return {
-      success: false,
-      message: 'File not found',
-    };
-
+    return { success: false, message: "File not found" };
   } catch (error) {
-    console.error('❌ Error searching for file:', error.message);
-    return {
-      success: false,
-      error: error.message,
-    };
+    console.error("❌ Error finding file:", error);
+    return { success: false, error: error.message };
   }
 }
 
