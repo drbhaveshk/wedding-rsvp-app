@@ -62,9 +62,15 @@ export default function RSVPForm() {
   };
 
   const handleSubmit = async () => {
-    // Validate mandatory fields only (Aadhar NOT Required)
+    // Validate mandatory fields
     if (!formData.guestName || !formData.numberOfGuests || !formData.attending) {
       alert('Please fill all mandatory fields: Name, Number of Guests and Attendance');
+      return;
+    }
+
+    // Only require Aadhar if attending is 'yes' or 'maybe'
+    if ((formData.attending === 'yes' || formData.attending === 'maybe') && formData.aadharFiles.length === 0) {
+      alert('Please upload at least one Aadhar document if you are attending or might attend');
       return;
     }
 
@@ -78,38 +84,28 @@ export default function RSVPForm() {
 
     try {
       // Convert all files to base64
-      const filePromises = formData.aadharFiles.map(file => {
-        return new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-      });
-
       let base64Files = [];
+      if (formData.aadharFiles.length > 0) {
+        const filePromises = formData.aadharFiles.map(file => {
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+        });
 
-if (formData.aadharFiles.length > 0) {
-  const filePromises = formData.aadharFiles.map(file => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  });
+        base64Files = await Promise.all(filePromises);
+      }
 
-  base64Files = await Promise.all(filePromises);
-}
-
-const rsvpData = {
-  guestName: formData.guestName,
-  arrivalDate: formData.arrivalDate || null,
-  departureDate: formData.departureDate || null,
-  numberOfGuests: parseInt(formData.numberOfGuests),
-  attending: formData.attending,
-  aadharImages: base64Files.length > 0 ? base64Files : null,
-  timestamp: new Date().toISOString()
+      const rsvpData = {
+        guestName: formData.guestName,
+        arrivalDate: formData.arrivalDate || null,
+        departureDate: formData.departureDate || null,
+        numberOfGuests: parseInt(formData.numberOfGuests),
+        attending: formData.attending,
+        aadharImages: base64Files,
+        timestamp: new Date().toISOString()
       };
 
       console.log('RSVP Data:', rsvpData);
@@ -159,6 +155,9 @@ const rsvpData = {
       </div>
     );
   }
+
+  // Check if Aadhar is required based on attendance
+  const isAadharRequired = formData.attending === 'yes' || formData.attending === 'maybe';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 py-8 px-4">
@@ -282,11 +281,11 @@ const rsvpData = {
               </div>
             </div>
 
-            {/* Aadhar Upload - MANDATORY, Multiple files */}
+            {/* Aadhar Upload - Conditionally MANDATORY based on attendance */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 <Upload className="w-4 h-4 inline mr-2" />
-                Upload Aadhar Documents <span className="text-red-500">*</span>
+                Upload Aadhar Documents {isAadharRequired ? <span className="text-red-500">*</span> : <span className="text-gray-400 text-xs">(Optional)</span>}
               </label>
               <input
                 type="file"
@@ -295,7 +294,11 @@ const rsvpData = {
                 multiple
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-pink-400 focus:outline-none transition-colors"
               />
-              <p className="text-xs text-gray-500 mt-1">You can upload multiple files</p>
+              <p className="text-xs text-gray-500 mt-1">
+                {isAadharRequired 
+                  ? 'Required if attending. You can upload multiple files.' 
+                  : 'Not required if you\'re not attending. You can upload multiple files.'}
+              </p>
               
               {/* File Previews */}
               {aadharPreviews.length > 0 && (
@@ -325,7 +328,9 @@ const rsvpData = {
             <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
               <p className="text-sm text-blue-800">
                 <strong>Note:</strong> Fields marked with <span className="text-red-500">*</span> are mandatory. 
-                Arrival and departure dates are optional.
+                {isAadharRequired 
+                  ? ' Aadhar documents are required if you are attending or might attend.'
+                  : ' Aadhar documents are not required if you are not attending.'}
               </p>
             </div>
 
