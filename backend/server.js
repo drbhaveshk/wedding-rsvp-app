@@ -168,7 +168,7 @@ async function updateExcel(data) {
 
     // Add images
     if (data.aadharPaths && data.aadharPaths.length > 0) {
-      console.log(`📷 Adding ${data.aadharPaths.length} images`);
+      console.log(`🖼️ Adding ${data.aadharPaths.length} images`);
       
       for (let i = 0; i < data.aadharPaths.length; i++) {
         const imgPath = data.aadharPaths[i];
@@ -484,13 +484,19 @@ app.post('/webhook', (req, res) => {
     if (msg) {
       console.log("Received WhatsApp message:", msg);
 
-      incomingMessages.push({
-       name: msg.name,
-       phoneNumber: msg.from,
-       message: msg.messageBody || msg.message,  // ensures fallback
-       timestamp: Number(msg.timestamp) * 1000,
-       messageId: msg.messageId
+      // Store the message with consistent property names
+      incomingMessages.unshift({
+        name: msg.name || 'Unknown',
+        phoneNumber: msg.from || 'Unknown',
+        messageBody: msg.messageBody || msg.message || msg.text || '',
+        timestamp: msg.timestamp ? Number(msg.timestamp) * 1000 : Date.now(),
+        messageId: msg.messageId || `msg_${Date.now()}`
       });
+
+      // Keep only last 100 messages to prevent memory issues
+      if (incomingMessages.length > 100) {
+        incomingMessages = incomingMessages.slice(0, 100);
+      }
     }
 
     res.sendStatus(200);
@@ -589,47 +595,23 @@ app.post('/api/whatsapp/send-confirmation', async (req, res) => {
   }
 });
 
-// GET recent incoming WhatsApp messages
-app.get('/api/whatsapp/incoming-messages', (req, res) => {
-  try {
-    const limit = Math.min(100, Number(req.query.limit) || 50);
-
-    const messages = incomingMessages.slice(0, limit).map(msg => ({
-      from: msg.from,
-      name: msg.name,
-      message: msg.messageBody,
-      timestamp: msg.timestamp,
-      type: msg.type
-    }));
-
-    res.json({
-      success: true,
-      messages
-    });
-
-  } catch (error) {
-    console.error("Error fetching incoming messages:", error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-
 // GET incoming WhatsApp messages
 app.get('/api/whatsapp/incoming-messages', (req, res) => {
   res.set('Cache-Control', 'no-store'); // Disable caching
 
   try {
+    console.log(`📨 Fetching messages. Total stored: ${incomingMessages.length}`);
+    
     return res.json({
       success: true,
-      messages: incomingMessages   // return all stored messages
+      messages: incomingMessages
     });
   } catch (error) {
     console.error("Error fetching incoming messages:", error);
     return res.status(500).json({
       success: false,
-      message: "Failed to fetch messages"
+      message: "Failed to fetch messages",
+      error: error.message
     });
   }
 });
@@ -642,7 +624,7 @@ async function startServer() {
       console.log('\n' + '='.repeat(50));
       console.log('🎉 Wedding RSVP Backend Server Started');
       console.log('='.repeat(50));
-      console.log(`📍 Port: ${PORT}`);
+      console.log(`🌐 Port: ${PORT}`);
       console.log(`📧 Email: ${process.env.NOTIFICATION_EMAIL || 'wedding-organizer@example.com'}`);
       console.log(`📱 WhatsApp: ${!!(process.env.META_PHONE_NUMBER_ID && process.env.META_ACCESS_TOKEN) ? 'Configured' : 'Not Configured'}`);
       console.log('='.repeat(50) + '\n');
