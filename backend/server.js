@@ -1,9 +1,8 @@
-// server.js - Main Backend Server
+// server.js - Main Backend Server (with Google Drive)
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
-const nodemailer = require('nodemailer');
 const ExcelJS = require('exceljs');
 const fs = require('fs').promises;
 const path = require('path');
@@ -17,6 +16,13 @@ const {
   verifyWebhook,
   handleWebhookMessage 
 } = require('./whatsapp-service');
+
+const {
+  uploadToGoogleDrive,
+  updateFileInGoogleDrive,
+  findFileByName,
+  makeFilePublic
+} = require('./google-drive-service');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -49,31 +55,23 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 }
 });
 
-// Email configuration
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER || 'your-email@gmail.com',
-    pass: process.env.EMAIL_PASS || 'your-app-password'
-  }
-});
-
 // In-memory storage
 let rsvpData = [];
 let serialNumber = 1;
-let incomingMessages = []; // Store incoming WhatsApp messages
+let incomingMessages = [];
+let googleDriveFileId = null; // Store the file ID for updates
 
-// Excel file path
-const EXCEL_FILE_PATH = path.join(__dirname, 'wedding-rsvp-data.xlsx');
+// Excel file configuration
+const EXCEL_FILE_NAME = 'wedding-rsvp-data.xlsx';
+const EXCEL_FILE_PATH = path.join(__dirname, EXCEL_FILE_NAME);
+const GOOGLE_DRIVE_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID || null;
 
 // Initialize Excel file
 async function initializeExcel() {
   try {
-    // Always create a fresh file
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("RSVP Responses");
 
-    // Define columns with explicit width
     worksheet.columns = [
       { header: "S.No", key: "serialNo", width: 10 },
       { header: "Guest Name", key: "guestName", width: 25 },
@@ -86,7 +84,6 @@ async function initializeExcel() {
       { header: "Aadhar Images", key: "images", width: 20 }
     ];
 
-    // Style header row
     const headerRow = worksheet.getRow(1);
     headerRow.height = 30;
     headerRow.font = { bold: true, size: 12, color: { argb: "FFFFFFFF" } };
@@ -127,33 +124,26 @@ async function updateExcel(data) {
       return false;
     }
 
-    // Get the last row number to add after
     const lastRowNum = worksheet.lastRow ? worksheet.lastRow.number : 1;
     const newRowNum = lastRowNum + 1;
 
     console.log(`📝 Adding data to row ${newRowNum}`);
 
-    // Manually set each cell value by column number (not by key)
     const newRow = worksheet.getRow(newRowNum);
-    newRow.getCell(1).value = data.serialNo;                    // Column A: S.No
-    newRow.getCell(2).value = data.guestName;                   // Column B: Guest Name
-    newRow.getCell(3).value = data.numberOfGuests;              // Column C: Number of Guests
-    newRow.getCell(4).value = data.arrivalDate || 'Not Provided'; // Column D: Arrival Date
-    newRow.getCell(5).value = data.departureDate || 'Not Provided'; // Column E: Departure Date
-    newRow.getCell(6).value = data.attending;                   // Column F: Attending
-    newRow.getCell(7).value = data.aadharPaths.join(', ');     // Column G: Aadhar Document Paths
-    newRow.getCell(8).value = data.timestamp;                   // Column H: Submission Time
-    newRow.getCell(9).value = 'See images →';                   // Column I: Aadhar Images
+    newRow.getCell(1).value = data.serialNo;
+    newRow.getCell(2).value = data.guestName;
+    newRow.getCell(3).value = data.numberOfGuests;
+    newRow.getCell(4).value = data.arrivalDate || 'Not Provided';
+    newRow.getCell(5).value = data.departureDate || 'Not Provided';
+    newRow.getCell(6).value = data.attending;
+    newRow.getCell(7).value = data.aadharPaths.join(', ');
+    newRow.getCell(8).value = data.timestamp;
+    newRow.getCell(9).value = 'See images →';
 
-    newRow.commit(); // Important: commit the row
+    newRow.commit();
 
     console.log(`✅ Row ${newRowNum} data set`);
-    console.log(`   - S.No: ${newRow.getCell(1).value}`);
-    console.log(`   - Name: ${newRow.getCell(2).value}`);
-    console.log(`   - Guests: ${newRow.getCell(3).value}`);
-    console.log(`   - Attending: ${newRow.getCell(6).value}`);
 
-    // Style the data cells
     newRow.height = 100;
     newRow.eachCell((cell, colNumber) => {
       cell.border = {
@@ -166,7 +156,6 @@ async function updateExcel(data) {
       cell.font = { size: 11 };
     });
 
-    // Add images
     if (data.aadharPaths && data.aadharPaths.length > 0) {
       console.log(`🖼️ Adding ${data.aadharPaths.length} images`);
       
@@ -176,14 +165,11 @@ async function updateExcel(data) {
 
         if (['jpg', 'jpeg', 'png', 'gif', 'bmp'].includes(ext)) {
           try {
-            console.log(`  Adding image ${i + 1}: ${imgPath}`);
-            
             const imageId = workbook.addImage({
               filename: imgPath,
               extension: ext
             });
 
-            // Place images in column I (column 8 in 0-indexed)
             worksheet.addImage(imageId, {
               tl: { col: 8 + (i * 0.35), row: newRowNum - 1 + (i * 0.01) },
               ext: { width: 90, height: 90 }
@@ -193,65 +179,68 @@ async function updateExcel(data) {
           } catch (imgErr) {
             console.log(`  ⚠️ Could not add image ${i + 1}:`, imgErr.message);
           }
-        } else {
-          console.log(`  ⚠️ Skipping non-image file: ${imgPath}`);
         }
       }
     }
 
-    // Save the workbook
     await workbook.xlsx.writeFile(EXCEL_FILE_PATH);
     console.log('✅ Excel file saved successfully');
-    
-    // Verify the data was written by reading specific cells
-    const verifyWorkbook = new ExcelJS.Workbook();
-    await verifyWorkbook.xlsx.readFile(EXCEL_FILE_PATH);
-    const verifySheet = verifyWorkbook.getWorksheet('RSVP Responses');
-    const verifyRow = verifySheet.getRow(newRowNum);
-    
-    console.log('✅ Verification - Row data:');
-    console.log('   S.No:', verifyRow.getCell(1).value);
-    console.log('   Guest Name:', verifyRow.getCell(2).value);
-    console.log('   Number of Guests:', verifyRow.getCell(3).value);
-    console.log('   Attending:', verifyRow.getCell(6).value);
     
     return true;
 
   } catch (err) {
     console.error('❌ Excel update error:', err);
-    console.error('Stack trace:', err.stack);
     return false;
   }
 }
 
-// Send email with Excel attachment
-async function sendEmailWithExcel(recipientEmail) {
+// Upload Excel file to Google Drive
+async function uploadExcelToDrive() {
   try {
-    const mailOptions = {
-      from: process.env.EMAIL_USER || 'your-email@gmail.com',
-      to: recipientEmail,
-      subject: 'Wedding RSVP - New Response Received',
-      html: `
-        <h2>New RSVP Response Received</h2>
-        <p>A guest has submitted their RSVP. Please find the updated Excel sheet attached.</p>
-        <p><strong>Total Responses:</strong> ${serialNumber - 1}</p>
-        <br>
-        <p>Best regards,<br>Wedding RSVP System</p>
-      `,
-      attachments: [
-        {
-          filename: 'wedding-rsvp-data.xlsx',
-          path: EXCEL_FILE_PATH
-        }
-      ]
-    };
+    console.log('\n📤 Uploading Excel to Google Drive...');
     
-    await transporter.sendMail(mailOptions);
-    console.log('📧 Email sent successfully');
-    return true;
+    // Check if file already exists in Drive
+    const existingFile = await findFileByName(EXCEL_FILE_NAME, GOOGLE_DRIVE_FOLDER_ID);
+    
+    let result;
+    
+    if (existingFile.success && existingFile.file) {
+      // Update existing file
+      console.log('📝 File exists, updating...');
+      result = await updateFileInGoogleDrive(existingFile.file.id, EXCEL_FILE_PATH);
+      googleDriveFileId = existingFile.file.id;
+    } else {
+      // Upload new file
+      console.log('📤 Creating new file...');
+      result = await uploadToGoogleDrive(
+        EXCEL_FILE_PATH, 
+        EXCEL_FILE_NAME, 
+        GOOGLE_DRIVE_FOLDER_ID
+      );
+      
+      if (result.success) {
+        googleDriveFileId = result.fileId;
+        
+        // Make file publicly accessible
+        await makeFilePublic(result.fileId);
+      }
+    }
+    
+    if (result.success) {
+      console.log('✅ Google Drive upload successful!');
+      console.log('🔗 View Link:', result.webViewLink);
+      return result;
+    } else {
+      console.error('❌ Google Drive upload failed:', result.error);
+      return result;
+    }
+    
   } catch (error) {
-    console.error('❌ Error sending email:', error);
-    return false;
+    console.error('❌ Error uploading to Drive:', error);
+    return {
+      success: false,
+      error: error.message
+    };
   }
 }
 
@@ -263,7 +252,8 @@ app.get('/api/health', (req, res) => {
     status: 'ok', 
     message: 'Wedding RSVP Backend is running',
     timestamp: new Date().toISOString(),
-    whatsappConfigured: !!(process.env.META_PHONE_NUMBER_ID && process.env.META_ACCESS_TOKEN)
+    whatsappConfigured: !!(process.env.META_PHONE_NUMBER_ID && process.env.META_ACCESS_TOKEN),
+    googleDriveConfigured: !!(process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH || process.env.GOOGLE_SERVICE_ACCOUNT_KEY)
   });
 });
 
@@ -284,9 +274,6 @@ app.post('/api/rsvp/submit', upload.array('aadharFiles', 10), async (req, res) =
     console.log('\n📝 ===== NEW RSVP SUBMISSION =====');
     console.log('Guest Name:', guestName);
     console.log('Number of Guests:', numberOfGuests);
-    console.log('Arrival Date:', arrivalDate);
-    console.log('Departure Date:', departureDate);
-    console.log('Attending:', attending);
     
     // Validate mandatory fields
     if (!guestName || !numberOfGuests || !attending) {
@@ -378,12 +365,13 @@ app.post('/api/rsvp/submit', upload.array('aadharFiles', 10), async (req, res) =
       console.log('✅ Excel file updated successfully');
     }
     
-    // Send email notification
-    console.log('\n📧 Sending email notification...');
-    const emailRecipient = process.env.NOTIFICATION_EMAIL || 'wedding-organizer@example.com';
-    const emailSent = await sendEmailWithExcel(emailRecipient);
-    if (!emailSent) {
-      console.error('❌ Failed to send email notification');
+    // Upload to Google Drive
+    console.log('\n☁️ Uploading to Google Drive...');
+    const driveResult = await uploadExcelToDrive();
+    if (!driveResult.success) {
+      console.error('❌ Failed to upload to Google Drive:', driveResult.error);
+    } else {
+      console.log('✅ Successfully uploaded to Google Drive');
     }
     
     console.log('\n🎉 RSVP SUBMISSION COMPLETE - Serial No:', rsvpEntry.serialNo);
@@ -392,7 +380,8 @@ app.post('/api/rsvp/submit', upload.array('aadharFiles', 10), async (req, res) =
     res.json({ 
       success: true, 
       message: 'RSVP submitted successfully',
-      serialNo: rsvpEntry.serialNo
+      serialNo: rsvpEntry.serialNo,
+      driveLink: driveResult.success ? driveResult.webViewLink : null
     });
     
   } catch (error) {
@@ -451,12 +440,37 @@ app.get('/api/rsvp/stats', async (req, res) => {
 // Download Excel file
 app.get('/api/rsvp/download', async (req, res) => {
   try {
-    res.download(EXCEL_FILE_PATH, 'wedding-rsvp-data.xlsx');
+    res.download(EXCEL_FILE_PATH, EXCEL_FILE_NAME);
   } catch (error) {
     res.status(500).json({ 
       success: false, 
       message: 'Error downloading file',
       error: error.message 
+    });
+  }
+});
+
+// Get Google Drive link
+app.get('/api/rsvp/drive-link', async (req, res) => {
+  try {
+    if (googleDriveFileId) {
+      const driveLink = `https://drive.google.com/file/d/${googleDriveFileId}/view`;
+      res.json({
+        success: true,
+        driveLink: driveLink,
+        fileId: googleDriveFileId
+      });
+    } else {
+      res.json({
+        success: false,
+        message: 'No file uploaded to Drive yet'
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error getting Drive link',
+      error: error.message
     });
   }
 });
@@ -484,7 +498,6 @@ app.post('/webhook', (req, res) => {
     if (msg) {
       console.log("Received WhatsApp message:", msg);
 
-      // Store the message with consistent property names
       incomingMessages.unshift({
         name: msg.name || 'Unknown',
         phoneNumber: msg.from || 'Unknown',
@@ -493,7 +506,6 @@ app.post('/webhook', (req, res) => {
         messageId: msg.messageId || `msg_${Date.now()}`
       });
 
-      // Keep only last 100 messages to prevent memory issues
       if (incomingMessages.length > 100) {
         incomingMessages = incomingMessages.slice(0, 100);
       }
@@ -539,7 +551,6 @@ app.post('/api/whatsapp/send-invitation', upload.single('invitationFile'), async
     });
   }
 });
-
 
 // Send WhatsApp Template Invitation
 app.post('/api/whatsapp/send-template-invitation', async (req, res) => {
@@ -597,7 +608,7 @@ app.post('/api/whatsapp/send-confirmation', async (req, res) => {
 
 // GET incoming WhatsApp messages
 app.get('/api/whatsapp/incoming-messages', (req, res) => {
-  res.set('Cache-Control', 'no-store'); // Disable caching
+  res.set('Cache-Control', 'no-store');
 
   try {
     console.log(`📨 Fetching messages. Total stored: ${incomingMessages.length}`);
@@ -625,8 +636,8 @@ async function startServer() {
       console.log('🎉 Wedding RSVP Backend Server Started');
       console.log('='.repeat(50));
       console.log(`🌐 Port: ${PORT}`);
-      console.log(`📧 Email: ${process.env.NOTIFICATION_EMAIL || 'wedding-organizer@example.com'}`);
       console.log(`📱 WhatsApp: ${!!(process.env.META_PHONE_NUMBER_ID && process.env.META_ACCESS_TOKEN) ? 'Configured' : 'Not Configured'}`);
+      console.log(`☁️  Google Drive: ${!!(process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH || process.env.GOOGLE_SERVICE_ACCOUNT_KEY) ? 'Configured' : 'Not Configured'}`);
       console.log('='.repeat(50) + '\n');
     });
   } catch (error) {
