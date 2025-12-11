@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { Heart, Calendar, User, Upload, CheckCircle, Users, X } from 'lucide-react';
 
-export default function RSVPForm() {
+export default function RSVPForm1() {
+  const WEDDING_ID = 'wedding1';
+  const WEDDING_NAME = 'Wedding 1';
+  
   const [formData, setFormData] = useState({
     guestName: '',
     arrivalDate: '',
@@ -27,14 +30,12 @@ export default function RSVPForm() {
     
     if (files.length === 0) return;
 
-    // Add new files to existing files
     const newFiles = [...formData.aadharFiles, ...files];
     setFormData(prev => ({
       ...prev,
       aadharFiles: newFiles
     }));
 
-    // Create previews for all files
     const newPreviews = [...aadharPreviews];
     files.forEach(file => {
       const reader = new FileReader();
@@ -105,6 +106,7 @@ export default function RSVPForm() {
       }
 
       const rsvpData = {
+        weddingId: WEDDING_ID,
         guestName: formData.guestName,
         arrivalDate: formData.arrivalDate || null,
         departureDate: formData.departureDate || null,
@@ -149,7 +151,7 @@ export default function RSVPForm() {
           <div className="mb-6">
             <CheckCircle className="w-20 h-20 text-green-500 mx-auto mb-4" />
             <h2 className="text-3xl font-bold text-gray-800 mb-2">Thank You!</h2>
-            <p className="text-gray-600">Your RSVP has been successfully submitted.</p>
+            <p className="text-gray-600">Your RSVP has been successfully submitted for {WEDDING_NAME}.</p>
           </div>
           <div className="bg-pink-50 rounded-lg p-4 mb-6">
             <p className="text-sm text-gray-700">
@@ -162,13 +164,17 @@ export default function RSVPForm() {
     );
   }
 
-  // Check if fields are required based on attendance
   const isAadharRequired = formData.attending === 'yes' || formData.attending === 'maybe';
   const isGuestsRequired = formData.attending === 'yes' || formData.attending === 'maybe';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 py-8 px-4">
       <div className="max-w-2xl mx-auto">
+        {/* Wedding Identifier */}
+        <div className="bg-pink-100 border-2 border-pink-300 rounded-lg p-3 text-center mb-4">
+          <p className="text-pink-800 font-semibold text-lg">{WEDDING_NAME}</p>
+        </div>
+
         <div className="bg-white rounded-2xl shadow-2xl p-8 mb-6 text-center">
           <div className="mb-6">
             <Heart className="w-16 h-16 text-pink-500 mx-auto mb-4 animate-pulse" />
