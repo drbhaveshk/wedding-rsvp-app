@@ -1,11 +1,10 @@
-// filepath: RSVPForm2.js
 import React, { useState } from 'react';
 import { Heart, Calendar, User, Upload, CheckCircle, Users, X } from 'lucide-react';
 
 export default function RSVPForm2() {
   const WEDDING_ID = 'wedding2';
   const WEDDING_NAME = 'Wedding 2';
-
+  
   const [formData, setFormData] = useState({
     guestName: '',
     arrivalDate: '',
@@ -14,7 +13,6 @@ export default function RSVPForm2() {
     attending: '',
     aadharFiles: []
   });
-
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [aadharPreviews, setAadharPreviews] = useState([]);
@@ -29,17 +27,21 @@ export default function RSVPForm2() {
 
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files);
+    
     if (files.length === 0) return;
 
     const newFiles = [...formData.aadharFiles, ...files];
-    setFormData(prev => ({ ...prev, aadharFiles: newFiles }));
+    setFormData(prev => ({
+      ...prev,
+      aadharFiles: newFiles
+    }));
 
     const newPreviews = [...aadharPreviews];
     files.forEach(file => {
       const reader = new FileReader();
       reader.onloadend = () => {
         newPreviews.push({
-          file,
+          file: file,
           preview: reader.result,
           name: file.name
         });
@@ -52,28 +54,34 @@ export default function RSVPForm2() {
   const removeFile = (index) => {
     const newFiles = formData.aadharFiles.filter((_, i) => i !== index);
     const newPreviews = aadharPreviews.filter((_, i) => i !== index);
-
-    setFormData(prev => ({ ...prev, aadharFiles: newFiles }));
+    
+    setFormData(prev => ({
+      ...prev,
+      aadharFiles: newFiles
+    }));
     setAadharPreviews(newPreviews);
   };
 
   const handleSubmit = async () => {
-    // Validation
+    // Validate mandatory fields
     if (!formData.guestName || !formData.attending) {
       alert('Please fill all mandatory fields: Name and Attendance');
       return;
     }
 
+    // Only require number of guests if attending is 'yes' or 'maybe'
     if ((formData.attending === 'yes' || formData.attending === 'maybe') && !formData.numberOfGuests) {
       alert('Please enter the number of guests if you are attending or might attend');
       return;
     }
 
+    // Only require Aadhar if attending is 'yes' or 'maybe'
     if ((formData.attending === 'yes' || formData.attending === 'maybe') && formData.aadharFiles.length === 0) {
       alert('Please upload at least one Aadhar document if you are attending or might attend');
       return;
     }
 
+    // Validate number of guests if provided
     if (formData.numberOfGuests && formData.numberOfGuests < 1) {
       alert('Number of guests must be at least 1');
       return;
@@ -82,19 +90,19 @@ export default function RSVPForm2() {
     setLoading(true);
 
     try {
+      // Convert all files to base64
       let base64Files = [];
       if (formData.aadharFiles.length > 0) {
-        base64Files = await Promise.all(
-          formData.aadharFiles.map(
-            file =>
-              new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result);
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
-              })
-          )
-        );
+        const filePromises = formData.aadharFiles.map(file => {
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+        });
+
+        base64Files = await Promise.all(filePromises);
       }
 
       const rsvpData = {
@@ -108,11 +116,15 @@ export default function RSVPForm2() {
         timestamp: new Date().toISOString()
       };
 
-      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+      console.log('RSVP Data:', rsvpData);
 
+      // Send to backend
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
       const response = await fetch(`${API_URL}/api/rsvp/submit`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(rsvpData)
       });
 
@@ -123,51 +135,58 @@ export default function RSVPForm2() {
       } else {
         alert('Error submitting RSVP. Please try again.');
       }
+
+      setLoading(false);
     } catch (error) {
       console.error('Error submitting RSVP:', error);
-      alert('Error submitting RSVP.');
+      alert('Error submitting RSVP. Please try again.');
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
-          <CheckCircle className="w-20 h-20 text-green-500 mx-auto mb-4" />
-          <h2 className="text-3xl font-bold mb-2">Thank You!</h2>
-          <p>Your RSVP has been submitted for {WEDDING_NAME}.</p>
-          <Heart className="w-12 h-12 text-pink-500 mx-auto animate-pulse mt-4" />
+          <div className="mb-6">
+            <CheckCircle className="w-20 h-20 text-green-500 mx-auto mb-4" />
+            <h2 className="text-3xl font-bold text-gray-800 mb-2">Thank You!</h2>
+            <p className="text-gray-600">Your RSVP has been successfully submitted for {WEDDING_NAME}.</p>
+          </div>
+          <div className="bg-purple-50 rounded-lg p-4 mb-6">
+            <p className="text-sm text-gray-700">
+              We have received your response and will send you further details via email and WhatsApp.
+            </p>
+          </div>
+          <Heart className="w-12 h-12 text-purple-500 mx-auto animate-pulse" />
         </div>
       </div>
     );
   }
 
   const isAadharRequired = formData.attending === 'yes' || formData.attending === 'maybe';
-  const isGuestsRequired = isAadharRequired;
+  const isGuestsRequired = formData.attending === 'yes' || formData.attending === 'maybe';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 py-8 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 py-8 px-4">
       <div className="max-w-2xl mx-auto">
         {/* Wedding Identifier */}
-        <div className="bg-pink-100 border-2 border-pink-300 rounded-lg p-3 text-center mb-4">
-          <p className="text-pink-800 font-semibold text-lg">{WEDDING_NAME}</p>
+        <div className="bg-purple-100 border-2 border-purple-300 rounded-lg p-3 text-center mb-4">
+          <p className="text-purple-800 font-semibold text-lg">{WEDDING_NAME}</p>
         </div>
 
-        {/* Header Section */}
         <div className="bg-white rounded-2xl shadow-2xl p-8 mb-6 text-center">
-          <Heart className="w-16 h-16 text-pink-500 mx-auto mb-4 animate-pulse" />
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">You're Invited!</h1>
-          <p className="text-xl text-gray-600">Join us in celebrating our special day</p>
+          <div className="mb-6">
+            <Heart className="w-16 h-16 text-purple-500 mx-auto mb-4 animate-pulse" />
+            <h1 className="text-4xl font-bold text-gray-800 mb-2">You're Invited!</h1>
+            <p className="text-xl text-gray-600">Join us in celebrating our special day</p>
+          </div>
         </div>
 
-        {/* RSVP Box */}
         <div className="bg-white rounded-2xl shadow-2xl p-8">
           <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">RSVP</h2>
-
           <div className="space-y-6">
-            {/* Guest Name */}
+            {/* Guest Name - MANDATORY */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 <User className="w-4 h-4 inline mr-2" />
@@ -178,17 +197,17 @@ export default function RSVPForm2() {
                 name="guestName"
                 value={formData.guestName}
                 onChange={(e) => handleInputChange(e.target)}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-pink-400"
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-400 focus:outline-none transition-colors"
                 placeholder="Enter your full name"
                 required
               />
             </div>
 
-            {/* Guests */}
+            {/* Number of Guests - Conditionally MANDATORY */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 <Users className="w-4 h-4 inline mr-2" />
-                Number of Guests {isGuestsRequired ? <span className="text-red-500">*</span> : '(Optional)'}
+                Number of Guests {isGuestsRequired ? <span className="text-red-500">*</span> : <span className="text-gray-400 text-xs">(Optional)</span>}
               </label>
               <input
                 type="number"
@@ -196,49 +215,54 @@ export default function RSVPForm2() {
                 value={formData.numberOfGuests}
                 onChange={(e) => handleInputChange(e.target)}
                 min="1"
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-pink-400"
-                placeholder={isGuestsRequired ? 'How many people will attend?' : 'Optional'}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-400 focus:outline-none transition-colors"
+                placeholder={isGuestsRequired ? "How many people will attend?" : "How many people (optional)"}
+                required={isGuestsRequired}
               />
+              <p className="text-xs text-gray-500 mt-1">
+                {isGuestsRequired 
+                  ? 'Required if attending' 
+                  : 'Not required if you\'re not attending'}
+              </p>
             </div>
 
-            {/* Arrival */}
+            {/* Date of Arrival - OPTIONAL */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 <Calendar className="w-4 h-4 inline mr-2" />
-                Date of Arrival (Optional)
+                Date of Arrival <span className="text-gray-400 text-xs">(Optional)</span>
               </label>
               <input
                 type="date"
                 name="arrivalDate"
                 value={formData.arrivalDate}
                 onChange={(e) => handleInputChange(e.target)}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-pink-400"
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-400 focus:outline-none transition-colors"
               />
             </div>
 
-            {/* Departure */}
+            {/* Date of Departure - OPTIONAL */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 <Calendar className="w-4 h-4 inline mr-2" />
-                Date of Departure (Optional)
+                Date of Departure <span className="text-gray-400 text-xs">(Optional)</span>
               </label>
               <input
                 type="date"
                 name="departureDate"
                 value={formData.departureDate}
                 onChange={(e) => handleInputChange(e.target)}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-pink-400"
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-400 focus:outline-none transition-colors"
               />
             </div>
 
-            {/* Attendance */}
+            {/* Attending - MANDATORY */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Will you be attending? <span className="text-red-500">*</span>
               </label>
-
               <div className="space-y-3">
-                <label className="flex items-center p-3 border-2 rounded-lg cursor-pointer">
+                <label className="flex items-center cursor-pointer p-3 border-2 border-gray-200 rounded-lg hover:border-purple-300 transition-colors">
                   <input
                     type="radio"
                     name="attending"
@@ -246,11 +270,11 @@ export default function RSVPForm2() {
                     checked={formData.attending === 'yes'}
                     onChange={(e) => handleInputChange(e.target)}
                     className="mr-3"
+                    required
                   />
-                  Yes, I'll be there!
+                  <span className="text-gray-700 font-medium">✅ Yes, I'll be there!</span>
                 </label>
-
-                <label className="flex items-center p-3 border-2 rounded-lg cursor-pointer">
+                <label className="flex items-center cursor-pointer p-3 border-2 border-gray-200 rounded-lg hover:border-yellow-300 transition-colors">
                   <input
                     type="radio"
                     name="attending"
@@ -259,10 +283,9 @@ export default function RSVPForm2() {
                     onChange={(e) => handleInputChange(e.target)}
                     className="mr-3"
                   />
-                  Maybe, not sure yet
+                  <span className="text-gray-700 font-medium">🤔 Maybe, not sure yet</span>
                 </label>
-
-                <label className="flex items-center p-3 border-2 rounded-lg cursor-pointer">
+                <label className="flex items-center cursor-pointer p-3 border-2 border-gray-200 rounded-lg hover:border-red-300 transition-colors">
                   <input
                     type="radio"
                     name="attending"
@@ -271,55 +294,70 @@ export default function RSVPForm2() {
                     onChange={(e) => handleInputChange(e.target)}
                     className="mr-3"
                   />
-                  Sorry, can't make it
+                  <span className="text-gray-700 font-medium">❌ Sorry, can't make it</span>
                 </label>
               </div>
             </div>
 
-            {/* Aadhar Upload */}
+            {/* Aadhar Upload - Conditionally MANDATORY based on attendance */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 <Upload className="w-4 h-4 inline mr-2" />
-                Upload Aadhar Documents {isAadharRequired ? <span className="text-red-500">*</span> : '(Optional)'}
+                Upload Aadhar Documents {isAadharRequired ? <span className="text-red-500">*</span> : <span className="text-gray-400 text-xs">(Optional)</span>}
               </label>
-
               <input
                 type="file"
                 accept="image/*,.pdf"
                 onChange={handleFileChange}
                 multiple
-                className="w-full px-4 py-3 border-2 rounded-lg"
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-400 focus:outline-none transition-colors"
               />
-
+              <p className="text-xs text-gray-500 mt-1">
+                {isAadharRequired 
+                  ? 'Required if attending. You can upload multiple files.' 
+                  : 'Not required if you\'re not attending. You can upload multiple files.'}
+              </p>
+              
+              {/* File Previews */}
               {aadharPreviews.length > 0 && (
                 <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-4">
                   {aadharPreviews.map((preview, index) => (
                     <div key={index} className="relative group">
-                      <img src={preview.preview} className="w-full h-32 object-cover rounded-lg border" />
+                      <img 
+                        src={preview.preview} 
+                        alt={`Aadhar ${index + 1}`} 
+                        className="w-full h-32 object-cover border-2 border-gray-200 rounded-lg"
+                      />
                       <button
-                        type="button"
                         onClick={() => removeFile(index)}
-                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100"
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        type="button"
                       >
                         <X className="w-4 h-4" />
                       </button>
-                      <p className="text-xs mt-1 truncate">{preview.name}</p>
+                      <p className="text-xs text-gray-600 mt-1 truncate">{preview.name}</p>
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Mandatory Note */}
-            <div className="bg-blue-50 border rounded-lg p-4 text-sm">
-              <strong>Note:</strong> Fields marked with <span className="text-red-500">*</span> are mandatory.
+            {/* Mandatory Fields Note */}
+            <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
+              <p className="text-sm text-blue-800">
+                <strong>Note:</strong> Fields marked with <span className="text-red-500">*</span> are mandatory.
+                {formData.attending === 'no' 
+                  ? ' Since you\'re not attending, only your name and attendance status are required.'
+                  : isGuestsRequired 
+                    ? ' Number of guests and Aadhar documents are required if you are attending or might attend.'
+                    : ' Arrival and departure dates are optional.'}
+              </p>
             </div>
 
-            {/* Submit */}
             <button
               onClick={handleSubmit}
               disabled={loading}
-              className="w-full bg-gradient-to-r from-pink-500 to-purple-500 text-white font-semibold py-4 rounded-lg hover:scale-105 disabled:opacity-50"
+              className="w-full bg-gradient-to-r from-purple-500 to-blue-500 text-white font-semibold py-4 rounded-lg hover:from-purple-600 hover:to-blue-600 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Submitting...' : 'Submit RSVP'}
             </button>
@@ -327,7 +365,7 @@ export default function RSVPForm2() {
         </div>
 
         <div className="text-center mt-6 text-gray-600 text-sm">
-          Thank you for being part of our special day! 💕
+          <p>Thank you for being part of our special day! 💕</p>
         </div>
       </div>
     </div>
