@@ -151,7 +151,7 @@ export default function RSVPForm2() {
           <div className="mb-6">
             <CheckCircle className="w-20 h-20 text-green-500 mx-auto mb-4" />
             <h2 className="text-3xl font-bold text-gray-800 mb-2">Thank You!</h2>
-            <p className="text-gray-600">Your RSVP has been successfully submitted for {WEDDING_NAME}.</p>
+            <p className="text-gray-600">Your RSVP has been successfully submitted for {Wedding 2}.</p>
           </div>
           <div className="bg-pink-50 rounded-lg p-4 mb-6">
             <p className="text-sm text-gray-700">
