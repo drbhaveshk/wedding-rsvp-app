@@ -670,10 +670,13 @@ export default function MultiWeddingAdminPanel() {
                   Your approved Meta template "<strong>{templateName}</strong>" will be sent to all guests.
                   <br/>
                   <br/>
-                  The variable <code className="bg-gray-200 px-2 py-1 rounded">{'{1}'}</code> in your template will be replaced with: <strong>{previewGuest.name}</strong>
+                  The variable <code className="bg-gray-200 px-2 py-1 rounded">{'{1}'}</code> 
+                  in your template will be replaced with: <strong>{previewGuest.name}</strong>
                   <br/>
                   <br/>
-                  <em className="text-gray-500">Note: The actual message content is controlled by your Meta template.</em>
+                  <em className="text-gray-500">
+                    Note: The actual message content is controlled by your Meta template.
+                  </em>
                 </p>
               </div>
               <button
