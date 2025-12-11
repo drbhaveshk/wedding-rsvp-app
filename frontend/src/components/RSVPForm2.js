@@ -168,7 +168,8 @@ export default function RSVPForm2() {
 
   const isAadharRequired = formData.attending === 'yes' || formData.attending === 'maybe';
   const isGuestsRequired = formData.attending === 'yes' || formData.attending === 'maybe';
-    };
+  
+   };
  };
 
   return (
