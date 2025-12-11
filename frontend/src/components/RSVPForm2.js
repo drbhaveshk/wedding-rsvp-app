@@ -63,6 +63,8 @@ export default function RSVPForm2() {
   };
 
   const handleSubmit = async () => {
+    const rsvpData = {
+      weddingId: WEDDING_ID,
     // Validate mandatory fields
     if (!formData.guestName || !formData.attending) {
       alert('Please fill all mandatory fields: Name and Attendance');
@@ -166,6 +168,8 @@ export default function RSVPForm2() {
 
   const isAadharRequired = formData.attending === 'yes' || formData.attending === 'maybe';
   const isGuestsRequired = formData.attending === 'yes' || formData.attending === 'maybe';
+   };
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 py-8 px-4">
