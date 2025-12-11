@@ -172,7 +172,7 @@ export default function RSVPForm3() {
       <div className="max-w-2xl mx-auto">
         {/* Wedding Identifier */}
         <div className="bg-pink-100 border-2 border-pink-300 rounded-lg p-3 text-center mb-4">
-          <p className="text-pink-800 font-semibold text-lg">Wedding 3</p>
+          <p className="text-pink-800 font-semibold text-lg">{WEDDING_NAME}</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-2xl p-8 mb-6 text-center">
