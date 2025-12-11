@@ -146,19 +146,19 @@ export default function RSVPForm3() {
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
           <div className="mb-6">
             <CheckCircle className="w-20 h-20 text-green-500 mx-auto mb-4" />
             <h2 className="text-3xl font-bold text-gray-800 mb-2">Thank You!</h2>
             <p className="text-gray-600">Your RSVP has been successfully submitted for {WEDDING_NAME}.</p>
           </div>
-          <div className="bg-pink-50 rounded-lg p-4 mb-6">
+          <div className="bg-blue-50 rounded-lg p-4 mb-6">
             <p className="text-sm text-gray-700">
               We have received your response and will send you further details via email and WhatsApp.
             </p>
           </div>
-          <Heart className="w-12 h-12 text-pink-500 mx-auto animate-pulse" />
+          <Heart className="w-12 h-12 text-blue-500 mx-auto animate-pulse" />
         </div>
       </div>
     );
@@ -168,16 +168,16 @@ export default function RSVPForm3() {
   const isGuestsRequired = formData.attending === 'yes' || formData.attending === 'maybe';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 py-8 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 py-8 px-4">
       <div className="max-w-2xl mx-auto">
         {/* Wedding Identifier */}
-        <div className="bg-pink-100 border-2 border-pink-300 rounded-lg p-3 text-center mb-4">
-          <p className="text-pink-800 font-semibold text-lg">{WEDDING_NAME}</p>
+        <div className="bg-blue-100 border-2 border-blue-300 rounded-lg p-3 text-center mb-4">
+          <p className="text-blue-800 font-semibold text-lg">{WEDDING_NAME}</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-2xl p-8 mb-6 text-center">
           <div className="mb-6">
-            <Heart className="w-16 h-16 text-pink-500 mx-auto mb-4 animate-pulse" />
+            <Heart className="w-16 h-16 text-blue-500 mx-auto mb-4 animate-pulse" />
             <h1 className="text-4xl font-bold text-gray-800 mb-2">You're Invited!</h1>
             <p className="text-xl text-gray-600">Join us in celebrating our special day</p>
           </div>
@@ -197,7 +197,7 @@ export default function RSVPForm3() {
                 name="guestName"
                 value={formData.guestName}
                 onChange={(e) => handleInputChange(e.target)}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-pink-400 focus:outline-none transition-colors"
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-400 focus:outline-none transition-colors"
                 placeholder="Enter your full name"
                 required
               />
@@ -215,7 +215,7 @@ export default function RSVPForm3() {
                 value={formData.numberOfGuests}
                 onChange={(e) => handleInputChange(e.target)}
                 min="1"
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-pink-400 focus:outline-none transition-colors"
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-400 focus:outline-none transition-colors"
                 placeholder={isGuestsRequired ? "How many people will attend?" : "How many people (optional)"}
                 required={isGuestsRequired}
               />
@@ -237,7 +237,7 @@ export default function RSVPForm3() {
                 name="arrivalDate"
                 value={formData.arrivalDate}
                 onChange={(e) => handleInputChange(e.target)}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-pink-400 focus:outline-none transition-colors"
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-400 focus:outline-none transition-colors"
               />
             </div>
 
@@ -252,7 +252,7 @@ export default function RSVPForm3() {
                 name="departureDate"
                 value={formData.departureDate}
                 onChange={(e) => handleInputChange(e.target)}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-pink-400 focus:outline-none transition-colors"
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-400 focus:outline-none transition-colors"
               />
             </div>
 
@@ -262,7 +262,7 @@ export default function RSVPForm3() {
                 Will you be attending? <span className="text-red-500">*</span>
               </label>
               <div className="space-y-3">
-                <label className="flex items-center cursor-pointer p-3 border-2 border-gray-200 rounded-lg hover:border-pink-300 transition-colors">
+                <label className="flex items-center cursor-pointer p-3 border-2 border-gray-200 rounded-lg hover:border-blue-300 transition-colors">
                   <input
                     type="radio"
                     name="attending"
@@ -310,7 +310,7 @@ export default function RSVPForm3() {
                 accept="image/*,.pdf"
                 onChange={handleFileChange}
                 multiple
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-pink-400 focus:outline-none transition-colors"
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-400 focus:outline-none transition-colors"
               />
               <p className="text-xs text-gray-500 mt-1">
                 {isAadharRequired 
@@ -357,7 +357,7 @@ export default function RSVPForm3() {
             <button
               onClick={handleSubmit}
               disabled={loading}
-              className="w-full bg-gradient-to-r from-pink-500 to-purple-500 text-white font-semibold py-4 rounded-lg hover:from-pink-600 hover:to-purple-600 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-semibold py-4 rounded-lg hover:from-blue-600 hover:to-indigo-600 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Submitting...' : 'Submit RSVP'}
             </button>
