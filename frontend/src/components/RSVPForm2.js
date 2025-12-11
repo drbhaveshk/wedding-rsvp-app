@@ -65,6 +65,7 @@ export default function RSVPForm2() {
   const handleSubmit = async () => {
     const rsvpData = {
       weddingId: WEDDING_ID,
+      
     // Validate mandatory fields
     if (!formData.guestName || !formData.attending) {
       alert('Please fill all mandatory fields: Name and Attendance');
@@ -170,6 +171,7 @@ export default function RSVPForm2() {
   const isGuestsRequired = formData.attending === 'yes' || formData.attending === 'maybe';
   
    };
+
  };
 
   return (
