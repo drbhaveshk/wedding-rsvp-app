@@ -2,12 +2,21 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Upload, Send, Users, CheckCircle, XCircle, Clock, Download, Eye, MessageSquare, RefreshCw } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
-export default function AdminPanel() {
-  const [guests, setGuests] = useState([]);
+export default function MultiWeddingAdminPanel() {
+  const [selectedWedding, setSelectedWedding] = useState('wedding1');
+  const [guests, setGuests] = useState({
+    wedding1: [],
+    wedding2: [],
+    wedding3: []
+  });
   const [templateName, setTemplateName] = useState('');
   const [templateLanguage, setTemplateLanguage] = useState('en');
   const [sending, setSending] = useState(false);
-  const [sendResults, setSendResults] = useState([]);
+  const [sendResults, setSendResults] = useState({
+    wedding1: [],
+    wedding2: [],
+    wedding3: []
+  });
   const [activeTab, setActiveTab] = useState('upload');
   const [previewGuest, setPreviewGuest] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
@@ -16,55 +25,48 @@ export default function AdminPanel() {
 
   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
+  const weddingOptions = [
+    { id: 'wedding1', name: 'Wedding 1', color: 'pink' },
+    { id: 'wedding2', name: 'Wedding 2', color: 'purple' },
+    { id: 'wedding3', name: 'Wedding 3', color: 'blue' }
+  ];
+
+  // Get current wedding's data
+  const currentGuests = guests[selectedWedding] || [];
+  const currentResults = sendResults[selectedWedding] || [];
+
   // Fetch incoming messages
   const fetchIncomingMessages = useCallback(async () => {
-  setLoadingMessages(true);
-  try {
-    const response = await fetch(`${API_URL}/api/whatsapp/incoming-messages`);
-    const result = await response.json();
-    
-    if (result.success) {
-      setIncomingMessages(result.messages);
+    setLoadingMessages(true);
+    try {
+      const response = await fetch(`${API_URL}/api/whatsapp/incoming-messages`);
+      const result = await response.json();
+      
+      if (result.success) {
+        setIncomingMessages(result.messages);
+      }
+    } catch (error) {
+      console.error('Error fetching messages:', error);
     }
-  } catch (error) {
-    console.error('Error fetching messages:', error);
-  }
-  setLoadingMessages(false);
-}, [API_URL]);
+    setLoadingMessages(false);
+  }, [API_URL]);
 
   // Fetch messages when Messages tab is opened
   useEffect(() => {
-  if (activeTab === 'messages') {
-    fetchIncomingMessages();
-  }
-}, [activeTab, fetchIncomingMessages]);
+    if (activeTab === 'messages') {
+      fetchIncomingMessages();
+    }
+  }, [activeTab, fetchIncomingMessages]);
 
-useEffect(() => {
-  if (activeTab !== 'messages') return;
-
-  const interval = setInterval(() => {
-    fetchIncomingMessages();
-  }, 30000);
-
-  return () => clearInterval(interval);
-}, [activeTab, fetchIncomingMessages]);
-
-  // Auto-refresh messages every 30 seconds when on Messages tab
   useEffect(() => {
-  if (activeTab === 'messages') {
-    fetchIncomingMessages();
-  }
-}, [activeTab, fetchIncomingMessages]);
+    if (activeTab !== 'messages') return;
 
-useEffect(() => {
-  if (activeTab !== 'messages') return;
+    const interval = setInterval(() => {
+      fetchIncomingMessages();
+    }, 30000);
 
-  const interval = setInterval(() => {
-    fetchIncomingMessages();
-  }, 30000);
-
-  return () => clearInterval(interval);
-}, [activeTab, fetchIncomingMessages]);
+    return () => clearInterval(interval);
+  }, [activeTab, fetchIncomingMessages]);
 
   // Handle Excel file upload
   const handleFileUpload = async (e) => {
@@ -77,7 +79,6 @@ useEffect(() => {
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-      // Map the data to our format
       const guestList = jsonData.map((row, index) => ({
         id: index + 1,
         name: row['Guest Name'] || row['Name'] || row['name'] || '',
@@ -85,8 +86,12 @@ useEffect(() => {
         status: 'pending'
       }));
 
-      setGuests(guestList);
-      alert(`Successfully loaded ${guestList.length} guests!`);
+      setGuests(prev => ({
+        ...prev,
+        [selectedWedding]: guestList
+      }));
+      
+      alert(`Successfully loaded ${guestList.length} guests for ${weddingOptions.find(w => w.id === selectedWedding)?.name}!`);
     } catch (error) {
       console.error('Error reading Excel file:', error);
       alert('Error reading Excel file. Please make sure it has columns: "Guest Name" and "Phone Number"');
@@ -95,35 +100,33 @@ useEffect(() => {
 
   // Generate preview
   const generatePreview = () => {
-    if (!templateName.trim() || guests.length === 0) {
+    if (!templateName.trim() || currentGuests.length === 0) {
       alert('Please enter template name and upload guest list first');
       return;
     }
 
-    setPreviewGuest(guests[0]);
+    setPreviewGuest(currentGuests[0]);
     setShowPreview(true);
   };
 
-  // Send invitations to all guests using Meta template
+  // Send invitations
   const sendInvitations = async () => {
     if (!templateName.trim()) {
       alert('Please enter Meta WhatsApp template name');
       return;
     }
 
-    if (guests.length === 0) {
+    if (currentGuests.length === 0) {
       alert('Please upload guest list first');
       return;
     }
 
     setSending(true);
-    setSendResults([]);
-
+    
     const results = [];
-    const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
-    for (let i = 0; i < guests.length; i++) {
-      const guest = guests[i];
+    for (let i = 0; i < currentGuests.length; i++) {
+      const guest = currentGuests[i];
       
       try {
         console.log(`Sending template to: ${guest.name} (${guest.phoneNumber})`);
@@ -137,7 +140,8 @@ useEffect(() => {
             phoneNumber: guest.phoneNumber,
             guestName: guest.name,
             templateName: templateName,
-            templateLanguage: templateLanguage
+            templateLanguage: templateLanguage,
+            weddingId: selectedWedding
           })
         });
 
@@ -155,15 +159,16 @@ useEffect(() => {
           error: result.error
         });
 
-        // Update guest status
-        setGuests(prev => prev.map(g => 
-          g.id === guest.id 
-            ? { ...g, status: result.success ? 'sent' : 'failed' }
-            : g
-        ));
+        setGuests(prev => ({
+          ...prev,
+          [selectedWedding]: prev[selectedWedding].map(g => 
+            g.id === guest.id 
+              ? { ...g, status: result.success ? 'sent' : 'failed' }
+              : g
+          )
+        }));
 
-        // Add delay between messages (2 seconds)
-        if (i < guests.length - 1) {
+        if (i < currentGuests.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 2000));
         }
 
@@ -176,15 +181,22 @@ useEffect(() => {
           error: error.message
         });
 
-        setGuests(prev => prev.map(g => 
-          g.id === guest.id 
-            ? { ...g, status: 'failed' }
-            : g
-        ));
+        setGuests(prev => ({
+          ...prev,
+          [selectedWedding]: prev[selectedWedding].map(g => 
+            g.id === guest.id 
+              ? { ...g, status: 'failed' }
+              : g
+          )
+        }));
       }
     }
 
-    setSendResults(results);
+    setSendResults(prev => ({
+      ...prev,
+      [selectedWedding]: results
+    }));
+    
     setSending(false);
     setActiveTab('results');
   };
@@ -205,18 +217,20 @@ useEffect(() => {
   };
 
   const stats = {
-    total: guests.length,
-    sent: guests.filter(g => g.status === 'sent').length,
-    failed: guests.filter(g => g.status === 'failed').length,
-    pending: guests.filter(g => g.status === 'pending').length
+    total: currentGuests.length,
+    sent: currentGuests.filter(g => g.status === 'sent').length,
+    failed: currentGuests.filter(g => g.status === 'failed').length,
+    pending: currentGuests.filter(g => g.status === 'pending').length
   };
+
+  const currentWedding = weddingOptions.find(w => w.id === selectedWedding);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
+        {/* Header with Wedding Selector */}
         <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
                 <Send className="w-8 h-8 text-pink-500" />
@@ -231,6 +245,27 @@ useEffect(() => {
               <Download className="w-4 h-4" />
               Download Template
             </button>
+          </div>
+
+          {/* Wedding Selection Dropdown */}
+          <div className="border-t pt-4">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Select Wedding Event:
+            </label>
+            <select
+              value={selectedWedding}
+              onChange={(e) => setSelectedWedding(e.target.value)}
+              className="w-full md:w-64 px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-pink-400 focus:outline-none font-semibold"
+            >
+              {weddingOptions.map(wedding => (
+                <option key={wedding.id} value={wedding.id}>
+                  {wedding.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-2">
+              Each wedding has its own guest list and settings. Common WhatsApp configuration is shared.
+            </p>
           </div>
         </div>
 
@@ -300,7 +335,7 @@ useEffect(() => {
               }`}
             >
               <Users className="w-5 h-5 inline mr-2" />
-              Guest List ({guests.length})
+              Guest List ({currentGuests.length})
             </button>
             <button
               onClick={() => setActiveTab('messages')}
@@ -322,7 +357,7 @@ useEffect(() => {
               }`}
             >
               <CheckCircle className="w-5 h-5 inline mr-2" />
-              Results ({sendResults.length})
+              Results ({currentResults.length})
             </button>
           </div>
 
@@ -330,11 +365,17 @@ useEffect(() => {
             {/* Configure & Upload Tab */}
             {activeTab === 'upload' && (
               <div className="space-y-6">
+                <div className="bg-gradient-to-r from-pink-50 to-purple-50 border-2 border-pink-200 rounded-lg p-4">
+                  <p className="text-sm font-semibold text-pink-800">
+                    📋 Currently configuring: <span className="text-lg">{currentWedding?.name}</span>
+                  </p>
+                </div>
+
                 <div>
                   <h3 className="text-xl font-bold text-gray-800 mb-4">Meta WhatsApp Template Configuration</h3>
                   <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 mb-4">
                     <p className="text-sm text-blue-800">
-                      <strong>📝 Important:</strong> Enter the exact name of your approved Meta WhatsApp template. 
+                      <strong>📌 Important:</strong> Enter the exact name of your approved Meta WhatsApp template. 
                       The template should have a variable <code className="bg-blue-100 px-2 py-1 rounded">{'{1}'}</code> which will be replaced with the guest name.
                     </p>
                   </div>
@@ -370,19 +411,10 @@ useEffect(() => {
                       </select>
                     </div>
                   </div>
-
-                  <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4 mt-4">
-                    <p className="text-sm text-yellow-800">
-                      <strong>⚠️ Before sending:</strong>
-                      <br/>1. Make sure your template is approved in Meta Business Manager
-                      <br/>2. Template must have variable <code className="bg-yellow-100 px-2 py-1 rounded">{'{1}'}</code> for guest name
-                      <br/>3. Test with 1-2 numbers first before bulk sending
-                    </p>
-                  </div>
                 </div>
 
                 <div>
-                  <h3 className="text-xl font-bold text-gray-800 mb-4">Upload Guest List</h3>
+                  <h3 className="text-xl font-bold text-gray-800 mb-4">Upload Guest List for {currentWedding?.name}</h3>
                   <div className="border-4 border-dashed border-gray-300 rounded-xl p-12 text-center hover:border-pink-400 transition-colors">
                     <Upload className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                     <label className="cursor-pointer">
@@ -405,7 +437,7 @@ useEffect(() => {
                 <div className="flex gap-4">
                   <button
                     onClick={generatePreview}
-                    disabled={guests.length === 0 || !templateName.trim()}
+                    disabled={currentGuests.length === 0 || !templateName.trim()}
                     className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                   >
                     <Eye className="w-5 h-5" />
@@ -414,11 +446,11 @@ useEffect(() => {
                   
                   <button
                     onClick={sendInvitations}
-                    disabled={sending || guests.length === 0 || !templateName.trim()}
+                    disabled={sending || currentGuests.length === 0 || !templateName.trim()}
                     className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-pink-500 to-purple-500 text-white font-semibold rounded-lg hover:from-pink-600 hover:to-purple-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Send className="w-5 h-5" />
-                    {sending ? 'Sending...' : `Send to All (${guests.length})`}
+                    {sending ? 'Sending...' : `Send to All (${currentGuests.length})`}
                   </button>
                 </div>
               </div>
@@ -427,11 +459,12 @@ useEffect(() => {
             {/* Guest List Tab */}
             {activeTab === 'guests' && (
               <div>
-                <h3 className="text-xl font-bold text-gray-800 mb-4">Guest List</h3>
-                {guests.length === 0 ? (
+                <h3 className="text-xl font-bold text-gray-800 mb-4">Guest List - {currentWedding?.name}</h3>
+                {currentGuests.length === 0 ? (
                   <div className="text-center py-12 text-gray-500">
                     <Users className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                    <p>No guests uploaded yet. Please upload an Excel file.</p>
+                    <p>No guests uploaded yet for {currentWedding?.name}.</p>
+                    <p className="text-sm mt-2">Please upload an Excel file.</p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -445,7 +478,7 @@ useEffect(() => {
                         </tr>
                       </thead>
                       <tbody>
-                        {guests.map((guest) => (
+                        {currentGuests.map((guest) => (
                           <tr key={guest.id} className="border-b hover:bg-gray-50">
                             <td className="px-4 py-3 text-sm text-gray-600">{guest.id}</td>
                             <td className="px-4 py-3 text-sm font-medium text-gray-800">{guest.name}</td>
@@ -483,7 +516,7 @@ useEffect(() => {
             {activeTab === 'messages' && (
               <div>
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-bold text-gray-800">Incoming WhatsApp Messages</h3>
+                  <h3 className="text-xl font-bold text-gray-800">Incoming WhatsApp Messages (All Weddings)</h3>
                   <button
                     onClick={fetchIncomingMessages}
                     disabled={loadingMessages}
@@ -525,7 +558,7 @@ useEffect(() => {
                             </div>
                             <div className="bg-white border border-gray-300 rounded-lg p-3 mb-2">
                               <p className="text-gray-800 whitespace-pre-wrap">
-                              {message.messageBody || "empty message"}
+                                {message.messageBody || "empty message"}
                               </p>
                             </div>
                             <div className="flex items-center gap-4 text-xs text-gray-500">
@@ -546,7 +579,7 @@ useEffect(() => {
 
                 <div className="mt-4 bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4">
                   <p className="text-sm text-yellow-800">
-                    <strong>💡 Note:</strong> Messages are stored temporarily. Download important conversations for your records.
+                    <strong>💡 Note:</strong> Messages from all weddings are shown here (common WhatsApp number). 
                     Auto-refreshes every 30 seconds.
                   </p>
                 </div>
@@ -556,15 +589,16 @@ useEffect(() => {
             {/* Results Tab */}
             {activeTab === 'results' && (
               <div>
-                <h3 className="text-xl font-bold text-gray-800 mb-4">Sending Results</h3>
-                {sendResults.length === 0 ? (
+                <h3 className="text-xl font-bold text-gray-800 mb-4">Sending Results - {currentWedding?.name}</h3>
+                {currentResults.length === 0 ? (
                   <div className="text-center py-12 text-gray-500">
                     <CheckCircle className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                    <p>No results yet. Send invitations to see results here.</p>
+                    <p>No results yet for {currentWedding?.name}.</p>
+                    <p className="text-sm mt-2">Send invitations to see results here.</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {sendResults.map((result, index) => (
+                    {currentResults.map((result, index) => (
                       <div
                         key={index}
                         className={`p-4 rounded-lg border-2 ${
@@ -609,7 +643,7 @@ useEffect(() => {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-2xl font-bold text-gray-800">Template Preview</h3>
+                <h3 className="text-2xl font-bold text-gray-800">Template Preview - {currentWedding?.name}</h3>
                 <button
                   onClick={() => setShowPreview(false)}
                   className="text-gray-500 hover:text-gray-700"
@@ -633,25 +667,4 @@ useEffect(() => {
                   <strong>What will be sent:</strong>
                 </p>
                 <p className="text-sm text-gray-600">
-                  Your approved Meta template "<strong>{templateName}</strong>" will be sent to all guests.
-                  <br/>
-                  <br/>
-                  The variable <code className="bg-gray-200 px-2 py-1 rounded">{'{1}'}</code> in your template will be replaced with: <strong>{previewGuest.name}</strong>
-                  <br/>
-                  <br/>
-                  <em className="text-gray-500">Note: The actual message content is controlled by your Meta template.</em>
-                </p>
-              </div>
-              <button
-                onClick={() => setShowPreview(false)}
-                className="mt-4 w-full px-6 py-3 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition-colors"
-              >
-                Close Preview
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+                  Your approved Meta template "<strong>{templateName}</strong>" will be sent to all
