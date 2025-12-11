@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Heart, Calendar, User, Upload, CheckCircle, Users, X } from 'lucide-react';
 
-export default function RSVPForm2() {
+export default function RSVPForm1() {
   const WEDDING_ID = 'wedding2';
   const WEDDING_NAME = 'Wedding 2';
   
@@ -106,7 +106,7 @@ export default function RSVPForm2() {
       }
 
       const rsvpData = {
-        weddingId: wedding2,
+        weddingId: WEDDING_ID,
         guestName: formData.guestName,
         arrivalDate: formData.arrivalDate || null,
         departureDate: formData.departureDate || null,
