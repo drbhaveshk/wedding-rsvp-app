@@ -106,7 +106,7 @@ export default function RSVPForm3() {
       }
 
       const rsvpData = {
-        weddingId: wedding3,
+        weddingId: WEDDING_ID,
         guestName: formData.guestName,
         arrivalDate: formData.arrivalDate || null,
         departureDate: formData.departureDate || null,
