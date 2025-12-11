@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Heart, Calendar, User, Upload, CheckCircle, Users, X } from 'lucide-react';
 
-export default function RSVPForm1() {
+export default function RSVPForm2() {
   const WEDDING_ID = 'wedding2';
   const WEDDING_NAME = 'Wedding 2';
   
