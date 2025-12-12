@@ -667,29 +667,4 @@ export default function MultiWeddingAdminPanel() {
                   <strong>What will be sent:</strong>
                 </p>
                 <p className="text-sm text-gray-600">
-                  Your approved Meta template "<strong>{templateName}</strong>" will be sent to all guests.
-                  <br/>
-                  <br/>
-                  The variable <code className="bg-gray-200 px-2 py-1 rounded">{'{1}'}</code> 
-                  in your template will be replaced with: <strong>{previewGuest.name}</strong>
-                  <br/>
-                  <br/>
-                  <em className="text-gray-500">
-                    Note: The actual message content is controlled by your Meta template.
-                  </em>
-                </p>
-              </div>
-              <button
-                onClick={() => setShowPreview(false)}
-                className="mt-4 w-full px-6 py-3 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition-colors"
-              >
-                Close Preview
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
+                  Your approved Meta template "<strong>{templateName}</strong>" will be sent
