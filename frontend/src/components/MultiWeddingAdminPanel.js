@@ -668,3 +668,38 @@ export default function MultiWeddingAdminPanel() {
                 </p>
                 <p className="text-sm text-gray-600">
                   Your approved Meta template "<strong>{templateName}</strong>" will be sent
+                  with the guest name <strong>{previewGuest.name}</strong> replacing the variable.
+                </p>
+                <div className="mt-4 p-4 bg-white border-2 border-pink-200 rounded-lg">
+                  <p className="text-gray-800">
+                    Template: <strong>{templateName}</strong>
+                  </p>
+                  <p className="text-gray-600 mt-2">
+                    Variable {'{1}'} will be replaced with: <strong>{previewGuest.name}</strong>
+                  </p>
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  onClick={() => setShowPreview(false)}
+                  className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => {
+                    setShowPreview(false);
+                    sendInvitations();
+                  }}
+                  className="px-6 py-2 bg-gradient-to-r from-pink-500 to-purple-500 text-white rounded-lg hover:from-pink-600 hover:to-purple-600 transition-all"
+                >
+                  Looks Good, Send All
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
