@@ -7,8 +7,16 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<RSVPForm />} />
-        <Route path="/rsvp" element={<RSVPForm />} />
+        {/* Default routes redirect to wedding 1 */}
+        <Route path="/" element={<RSVPForm weddingId="1" />} />
+        <Route path="/rsvp" element={<RSVPForm weddingId="1" />} />
+        
+        {/* Wedding-specific RSVP routes */}
+        <Route path="/rsvp/wedding1" element={<RSVPForm weddingId="1" />} />
+        <Route path="/rsvp/wedding2" element={<RSVPForm weddingId="2" />} />
+        <Route path="/rsvp/wedding3" element={<RSVPForm weddingId="3" />} />
+        
+        {/* Admin panel route */}
         <Route path="/admin" element={<AdminPanel />} />
       </Routes>
     </Router>
