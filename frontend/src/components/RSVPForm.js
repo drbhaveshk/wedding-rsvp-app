@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Heart, Calendar, User, Upload, CheckCircle, Users, X } from 'lucide-react';
 
-export default function RSVPForm() {
+export default function RSVPForm({ weddingId = '1' }) {
   const [formData, setFormData] = useState({
     guestName: '',
     arrivalDate: '',
@@ -105,6 +105,7 @@ export default function RSVPForm() {
       }
 
       const rsvpData = {
+        weddingId: weddingId,
         guestName: formData.guestName,
         arrivalDate: formData.arrivalDate || null,
         departureDate: formData.departureDate || null,
@@ -142,21 +143,48 @@ export default function RSVPForm() {
     }
   };
 
+  // Wedding-specific colors
+  const weddingThemes = {
+    '1': {
+      gradient: 'from-pink-50 via-purple-50 to-blue-50',
+      primary: 'pink-500',
+      secondary: 'purple-500',
+      accent: 'pink-400',
+      title: '💕 Wedding 1'
+    },
+    '2': {
+      gradient: 'from-blue-50 via-cyan-50 to-teal-50',
+      primary: 'blue-500',
+      secondary: 'cyan-500',
+      accent: 'blue-400',
+      title: '💙 Wedding 2'
+    },
+    '3': {
+      gradient: 'from-green-50 via-emerald-50 to-lime-50',
+      primary: 'green-500',
+      secondary: 'emerald-500',
+      accent: 'green-400',
+      title: '💚 Wedding 3'
+    }
+  };
+
+  const theme = weddingThemes[weddingId] || weddingThemes['1'];
+
   if (submitted) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 flex items-center justify-center p-4">
+      <div className={`min-h-screen bg-gradient-to-br ${theme.gradient} flex items-center justify-center p-4`}>
         <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
           <div className="mb-6">
             <CheckCircle className="w-20 h-20 text-green-500 mx-auto mb-4" />
             <h2 className="text-3xl font-bold text-gray-800 mb-2">Thank You!</h2>
-            <p className="text-gray-600">Your RSVP has been successfully submitted.</p>
+            <p className="text-gray-600">Your RSVP for {theme.title} has been successfully submitted.</p>
           </div>
-          <div className="bg-pink-50 rounded-lg p-4 mb-6">
+          <div className={`bg-${theme.primary} bg-opacity-10 rounded-lg p-4 mb-6`}>
             <p className="text-sm text-gray-700">
               We have received your response and will send you further details via email and WhatsApp.
             </p>
           </div>
-          <Heart className="w-12 h-12 text-pink-500 mx-auto animate-pulse" />
+          <Heart className={`w-12 h-12 text-${theme.primary} mx-auto animate-pulse`} />
         </div>
       </div>
     );
@@ -167,13 +195,16 @@ export default function RSVPForm() {
   const isGuestsRequired = formData.attending === 'yes' || formData.attending === 'maybe';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 py-8 px-4">
+    <div className={`min-h-screen bg-gradient-to-br ${theme.gradient} py-8 px-4`}>
       <div className="max-w-2xl mx-auto">
         <div className="bg-white rounded-2xl shadow-2xl p-8 mb-6 text-center">
           <div className="mb-6">
-            <Heart className="w-16 h-16 text-pink-500 mx-auto mb-4 animate-pulse" />
+            <Heart className={`w-16 h-16 text-${theme.primary} mx-auto mb-4 animate-pulse`} />
             <h1 className="text-4xl font-bold text-gray-800 mb-2">You're Invited!</h1>
-            <p className="text-xl text-gray-600">Join us in celebrating our special day</p>
+            <p className="text-xl text-gray-600">Join us in celebrating {theme.title}</p>
+            <div className={`inline-block mt-3 px-4 py-2 bg-${theme.primary} bg-opacity-20 rounded-full`}>
+              <span className="text-sm font-semibold text-gray-700">{theme.title}</span>
+            </div>
           </div>
         </div>
 
@@ -191,7 +222,7 @@ export default function RSVPForm() {
                 name="guestName"
                 value={formData.guestName}
                 onChange={(e) => handleInputChange(e.target)}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-pink-400 focus:outline-none transition-colors"
+                className={`w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-${theme.accent} focus:outline-none transition-colors`}
                 placeholder="Enter your full name"
                 required
               />
@@ -209,7 +240,7 @@ export default function RSVPForm() {
                 value={formData.numberOfGuests}
                 onChange={(e) => handleInputChange(e.target)}
                 min="1"
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-pink-400 focus:outline-none transition-colors"
+                className={`w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-${theme.accent} focus:outline-none transition-colors`}
                 placeholder={isGuestsRequired ? "How many people will attend?" : "How many people (optional)"}
                 required={isGuestsRequired}
               />
@@ -231,7 +262,7 @@ export default function RSVPForm() {
                 name="arrivalDate"
                 value={formData.arrivalDate}
                 onChange={(e) => handleInputChange(e.target)}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-pink-400 focus:outline-none transition-colors"
+                className={`w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-${theme.accent} focus:outline-none transition-colors`}
               />
             </div>
 
@@ -246,7 +277,7 @@ export default function RSVPForm() {
                 name="departureDate"
                 value={formData.departureDate}
                 onChange={(e) => handleInputChange(e.target)}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-pink-400 focus:outline-none transition-colors"
+                className={`w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-${theme.accent} focus:outline-none transition-colors`}
               />
             </div>
 
@@ -304,7 +335,7 @@ export default function RSVPForm() {
                 accept="image/*,.pdf"
                 onChange={handleFileChange}
                 multiple
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-pink-400 focus:outline-none transition-colors"
+                className={`w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-${theme.accent} focus:outline-none transition-colors`}
               />
               <p className="text-xs text-gray-500 mt-1">
                 {isAadharRequired 
@@ -351,7 +382,7 @@ export default function RSVPForm() {
             <button
               onClick={handleSubmit}
               disabled={loading}
-              className="w-full bg-gradient-to-r from-pink-500 to-purple-500 text-white font-semibold py-4 rounded-lg hover:from-pink-600 hover:to-purple-600 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`w-full bg-gradient-to-r from-${theme.primary} to-${theme.secondary} text-white font-semibold py-4 rounded-lg hover:from-${theme.secondary} hover:to-${theme.primary} transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               {loading ? 'Submitting...' : 'Submit RSVP'}
             </button>
