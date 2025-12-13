@@ -19,6 +19,7 @@ export default function AdminPanel() {
 
   // Reset state when wedding changes
   useEffect(() => {
+    console.log('Wedding changed to:', selectedWedding);
     setGuests([]);
     setTemplateName('');
     setSendResults([]);
@@ -26,7 +27,7 @@ export default function AdminPanel() {
     fetchIncomingMessages();
   }, [selectedWedding]);
 
-  // Fetch incoming messages for selected wedding
+  // Fetch incoming messages
   const fetchIncomingMessages = useCallback(async () => {
     setLoadingMessages(true);
     try {
@@ -42,25 +43,20 @@ export default function AdminPanel() {
     setLoadingMessages(false);
   }, [API_URL, selectedWedding]);
 
-  // Fetch messages when Messages tab is opened
   useEffect(() => {
     if (activeTab === 'messages') {
       fetchIncomingMessages();
     }
   }, [activeTab, fetchIncomingMessages]);
 
-  // Auto-refresh messages every 30 seconds when on Messages tab
   useEffect(() => {
     if (activeTab !== 'messages') return;
-
     const interval = setInterval(() => {
       fetchIncomingMessages();
     }, 30000);
-
     return () => clearInterval(interval);
   }, [activeTab, fetchIncomingMessages]);
 
-  // Handle Excel file upload
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -71,7 +67,6 @@ export default function AdminPanel() {
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-      // Map the data to our format
       const guestList = jsonData.map((row, index) => ({
         id: index + 1,
         name: row['Guest Name'] || row['Name'] || row['name'] || '',
@@ -87,24 +82,20 @@ export default function AdminPanel() {
     }
   };
 
-  // Generate preview
   const generatePreview = () => {
     if (!templateName.trim() || guests.length === 0) {
       alert('Please enter template name and upload guest list first');
       return;
     }
-
     setPreviewGuest(guests[0]);
     setShowPreview(true);
   };
 
-  // Send invitations to all guests using Meta template
   const sendInvitations = async () => {
     if (!templateName.trim()) {
       alert('Please enter Meta WhatsApp template name');
       return;
     }
-
     if (guests.length === 0) {
       alert('Please upload guest list first');
       return;
@@ -112,20 +103,15 @@ export default function AdminPanel() {
 
     setSending(true);
     setSendResults([]);
-
     const results = [];
 
     for (let i = 0; i < guests.length; i++) {
       const guest = guests[i];
       
       try {
-        console.log(`Sending template to: ${guest.name} (${guest.phoneNumber}) for Wedding ${selectedWedding}`);
-
         const response = await fetch(`${API_URL}/api/whatsapp/send-template-invitation`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             phoneNumber: guest.phoneNumber,
             guestName: guest.name,
@@ -135,10 +121,7 @@ export default function AdminPanel() {
           })
         });
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const result = await response.json();
 
         results.push({
@@ -149,31 +132,22 @@ export default function AdminPanel() {
           error: result.error
         });
 
-        // Update guest status
         setGuests(prev => prev.map(g => 
-          g.id === guest.id 
-            ? { ...g, status: result.success ? 'sent' : 'failed' }
-            : g
+          g.id === guest.id ? { ...g, status: result.success ? 'sent' : 'failed' } : g
         ));
 
-        // Add delay between messages (2 seconds)
         if (i < guests.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 2000));
         }
-
       } catch (error) {
-        console.error('Error sending invitation:', error);
         results.push({
           guest: guest.name,
           phone: guest.phoneNumber,
           success: false,
           error: error.message
         });
-
         setGuests(prev => prev.map(g => 
-          g.id === guest.id 
-            ? { ...g, status: 'failed' }
-            : g
+          g.id === guest.id ? { ...g, status: 'failed' } : g
         ));
       }
     }
@@ -183,15 +157,12 @@ export default function AdminPanel() {
     setActiveTab('results');
   };
 
-  // Download sample Excel template
   const downloadTemplate = () => {
     const template = [
       ['Guest Name', 'Phone Number'],
       ['John Doe', '9876543210'],
-      ['Jane Smith', '9876543211'],
-      ['Ram Kumar', '9876543212']
+      ['Jane Smith', '9876543211']
     ];
-
     const ws = XLSX.utils.aoa_to_sheet(template);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Guest List');
@@ -205,334 +176,405 @@ export default function AdminPanel() {
     pending: guests.filter(g => g.status === 'pending').length
   };
 
-  // Wedding-specific styling
-  const getWeddingColors = () => {
-    switch(selectedWedding) {
-      case '1':
-        return {
-          bgGradient: 'bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50',
-          primary: 'bg-pink-500 hover:bg-pink-600',
-          secondary: 'bg-purple-500 hover:bg-purple-600',
-          gradient: 'bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600',
-          icon: 'text-pink-500',
-          border: 'border-pink-400',
-          focus: 'focus:border-pink-400'
-        };
-      case '2':
-        return {
-          bgGradient: 'bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50',
-          primary: 'bg-blue-500 hover:bg-blue-600',
-          secondary: 'bg-cyan-500 hover:bg-cyan-600',
-          gradient: 'bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600',
-          icon: 'text-blue-500',
-          border: 'border-blue-400',
-          focus: 'focus:border-blue-400'
-        };
-      case '3':
-        return {
-          bgGradient: 'bg-gradient-to-br from-green-50 via-emerald-50 to-lime-50',
-          primary: 'bg-green-500 hover:bg-green-600',
-          secondary: 'bg-emerald-500 hover:bg-emerald-600',
-          gradient: 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600',
-          icon: 'text-green-500',
-          border: 'border-green-400',
-          focus: 'focus:border-green-400'
-        };
-      default:
-        return {
-          bgGradient: 'bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50',
-          primary: 'bg-pink-500 hover:bg-pink-600',
-          secondary: 'bg-purple-500 hover:bg-purple-600',
-          gradient: 'bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600',
-          icon: 'text-pink-500',
-          border: 'border-pink-400',
-          focus: 'focus:border-pink-400'
-        };
+  const weddingColors = {
+    '1': { bg: '#fce7f3', primary: '#ec4899', secondary: '#a855f7', icon: '💕' },
+    '2': { bg: '#dbeafe', primary: '#3b82f6', secondary: '#06b6d4', icon: '💙' },
+    '3': { bg: '#d1fae5', primary: '#10b981', secondary: '#059669', icon: '💚' }
+  };
+
+  const colors = weddingColors[selectedWedding];
+
+  const styles = {
+    container: {
+      minHeight: '100vh',
+      background: 'linear-gradient(to bottom right, #fce7f3, #f3e8ff, #dbeafe)',
+      padding: '24px'
+    },
+    card: {
+      backgroundColor: 'white',
+      borderRadius: '16px',
+      boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+      padding: '24px',
+      marginBottom: '24px'
+    },
+    selectorBox: {
+      backgroundColor: colors.bg,
+      padding: '24px',
+      borderRadius: '12px',
+      border: `3px solid ${colors.primary}`,
+      marginTop: '24px'
+    },
+    select: {
+      width: '100%',
+      padding: '16px',
+      fontSize: '20px',
+      fontWeight: 'bold',
+      border: '2px solid #333',
+      borderRadius: '12px',
+      cursor: 'pointer',
+      backgroundColor: 'white',
+      marginTop: '12px'
+    },
+    badge: {
+      display: 'inline-block',
+      marginTop: '16px',
+      padding: '12px 24px',
+      backgroundColor: colors.primary,
+      color: 'white',
+      borderRadius: '8px',
+      fontWeight: 'bold',
+      fontSize: '16px'
+    },
+    button: {
+      padding: '12px 24px',
+      backgroundColor: colors.primary,
+      color: 'white',
+      border: 'none',
+      borderRadius: '8px',
+      cursor: 'pointer',
+      fontWeight: 'bold',
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '8px'
+    },
+    tab: {
+      flex: 1,
+      padding: '16px 24px',
+      border: 'none',
+      fontWeight: '600',
+      cursor: 'pointer',
+      backgroundColor: '#f3f4f6',
+      color: '#4b5563',
+      transition: 'all 0.3s'
+    },
+    activeTab: {
+      backgroundColor: colors.primary,
+      color: 'white'
+    },
+    input: {
+      width: '100%',
+      padding: '12px 16px',
+      border: '2px solid #e5e7eb',
+      borderRadius: '8px',
+      fontSize: '16px',
+      boxSizing: 'border-box'
+    },
+    statCard: {
+      backgroundColor: 'white',
+      borderRadius: '12px',
+      boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+      padding: '24px'
     }
   };
 
-  const colors = getWeddingColors();
-
   return (
-    <div className={`min-h-screen ${colors.bgGradient} p-6`}>
-      <div className="max-w-7xl mx-auto">
-        {/* Header with Wedding Selector */}
-        <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
-                <Send className={`w-8 h-8 ${colors.icon}`} />
+    <div style={styles.container}>
+      <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
+        {/* Header */}
+        <div style={styles.card}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <div>
+              <h1 style={{ fontSize: '32px', fontWeight: 'bold', color: '#1f2937', display: 'flex', alignItems: 'center', gap: '12px', margin: 0 }}>
+                <Send style={{ width: '32px', height: '32px', color: colors.primary }} />
                 Wedding Invitation Manager
               </h1>
-              <p className="text-gray-600 mt-2">Upload guest list and send WhatsApp invitations using Meta templates</p>
+              <p style={{ color: '#6b7280', marginTop: '8px', marginBottom: 0 }}>
+                Upload guest list and send WhatsApp invitations using Meta templates
+              </p>
             </div>
-            <button
-              onClick={downloadTemplate}
-              className={`flex items-center gap-2 px-4 py-2 ${colors.primary} text-white rounded-lg transition-colors`}
-            >
-              <Download className="w-4 h-4" />
+            <button onClick={downloadTemplate} style={styles.button}>
+              <Download style={{ width: '16px', height: '16px' }} />
               Download Template
             </button>
           </div>
-          
-          {/* Wedding Selector - PROMINENT DISPLAY */}
-          <div className="border-t-2 border-gray-200 pt-6 mt-4">
-            <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6 border-2 border-purple-200">
-              <label className="block text-lg font-bold text-gray-800 mb-3">
-                📋 Select Wedding to Manage
-              </label>
-              <select
-                value={selectedWedding}
-                onChange={(e) => setSelectedWedding(e.target.value)}
-                className="w-full px-6 py-4 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:outline-none text-xl font-bold bg-white shadow-lg cursor-pointer"
-              >
-                <option value="1">🎊 Wedding 1</option>
-                <option value="2">🎉 Wedding 2</option>
-                <option value="3">🎈 Wedding 3</option>
-              </select>
-              <div className="mt-3 flex items-center justify-between">
-                <p className="text-sm text-gray-600">
-                  Each wedding has separate guest lists, messages, and Excel files
-                </p>
-                <div className={`px-4 py-2 ${colors.primary} text-white rounded-lg font-semibold`}>
-                  Currently Managing: Wedding {selectedWedding}
-                </div>
-              </div>
+
+          {/* WEDDING SELECTOR - HIGHLY VISIBLE */}
+          <div style={styles.selectorBox}>
+            <label style={{ fontSize: '24px', fontWeight: 'bold', color: '#1f2937', display: 'block' }}>
+              📋 Select Wedding to Manage
+            </label>
+            <select
+              value={selectedWedding}
+              onChange={(e) => {
+                console.log('Changing to wedding:', e.target.value);
+                setSelectedWedding(e.target.value);
+              }}
+              style={styles.select}
+            >
+              <option value="1">🎊 Wedding 1</option>
+              <option value="2">🎉 Wedding 2</option>
+              <option value="3">🎈 Wedding 3</option>
+            </select>
+            <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <p style={{ fontSize: '14px', color: '#6b7280', margin: 0 }}>
+                Each wedding has separate guest lists, messages, and Excel files
+              </p>
+              <span style={styles.badge}>
+                Currently: Wedding {selectedWedding} {colors.icon}
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <div className="flex items-center justify-between">
+        {/* Stats */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+          <div style={styles.statCard}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <p className="text-gray-600 text-sm">Total Guests</p>
-                <p className="text-3xl font-bold text-gray-800">{stats.total}</p>
+                <p style={{ color: '#6b7280', fontSize: '14px', margin: 0 }}>Total Guests</p>
+                <p style={{ fontSize: '32px', fontWeight: 'bold', color: '#1f2937', margin: '4px 0 0 0' }}>{stats.total}</p>
               </div>
-              <Users className={`w-10 h-10 ${colors.icon}`} />
+              <Users style={{ width: '40px', height: '40px', color: colors.primary }} />
             </div>
           </div>
-          
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <div className="flex items-center justify-between">
+          <div style={styles.statCard}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <p className="text-gray-600 text-sm">Sent</p>
-                <p className="text-3xl font-bold text-green-600">{stats.sent}</p>
+                <p style={{ color: '#6b7280', fontSize: '14px', margin: 0 }}>Sent</p>
+                <p style={{ fontSize: '32px', fontWeight: 'bold', color: '#10b981', margin: '4px 0 0 0' }}>{stats.sent}</p>
               </div>
-              <CheckCircle className="w-10 h-10 text-green-500" />
+              <CheckCircle style={{ width: '40px', height: '40px', color: '#10b981' }} />
             </div>
           </div>
-          
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <div className="flex items-center justify-between">
+          <div style={styles.statCard}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <p className="text-gray-600 text-sm">Failed</p>
-                <p className="text-3xl font-bold text-red-600">{stats.failed}</p>
+                <p style={{ color: '#6b7280', fontSize: '14px', margin: 0 }}>Failed</p>
+                <p style={{ fontSize: '32px', fontWeight: 'bold', color: '#ef4444', margin: '4px 0 0 0' }}>{stats.failed}</p>
               </div>
-              <XCircle className="w-10 h-10 text-red-500" />
+              <XCircle style={{ width: '40px', height: '40px', color: '#ef4444' }} />
             </div>
           </div>
-          
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <div className="flex items-center justify-between">
+          <div style={styles.statCard}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <p className="text-gray-600 text-sm">Pending</p>
-                <p className="text-3xl font-bold text-yellow-600">{stats.pending}</p>
+                <p style={{ color: '#6b7280', fontSize: '14px', margin: 0 }}>Pending</p>
+                <p style={{ fontSize: '32px', fontWeight: 'bold', color: '#f59e0b', margin: '4px 0 0 0' }}>{stats.pending}</p>
               </div>
-              <Clock className="w-10 h-10 text-yellow-500" />
+              <Clock style={{ width: '40px', height: '40px', color: '#f59e0b' }} />
             </div>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-          <div className="flex border-b">
+        <div style={styles.card}>
+          <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb' }}>
             <button
               onClick={() => setActiveTab('upload')}
-              className={`flex-1 px-6 py-4 font-semibold transition-colors ${
-                activeTab === 'upload'
-                  ? `${colors.primary} text-white`
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+              style={{ ...styles.tab, ...(activeTab === 'upload' ? styles.activeTab : {}) }}
             >
-              <Upload className="w-5 h-5 inline mr-2" />
+              <Upload style={{ width: '20px', height: '20px', display: 'inline', marginRight: '8px' }} />
               Configure & Upload
             </button>
             <button
               onClick={() => setActiveTab('guests')}
-              className={`flex-1 px-6 py-4 font-semibold transition-colors ${
-                activeTab === 'guests'
-                  ? `${colors.primary} text-white`
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+              style={{ ...styles.tab, ...(activeTab === 'guests' ? styles.activeTab : {}) }}
             >
-              <Users className="w-5 h-5 inline mr-2" />
+              <Users style={{ width: '20px', height: '20px', display: 'inline', marginRight: '8px' }} />
               Guest List ({guests.length})
             </button>
             <button
               onClick={() => setActiveTab('messages')}
-              className={`flex-1 px-6 py-4 font-semibold transition-colors ${
-                activeTab === 'messages'
-                  ? `${colors.primary} text-white`
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+              style={{ ...styles.tab, ...(activeTab === 'messages' ? styles.activeTab : {}) }}
             >
-              <MessageSquare className="w-5 h-5 inline mr-2" />
+              <MessageSquare style={{ width: '20px', height: '20px', display: 'inline', marginRight: '8px' }} />
               Messages ({incomingMessages.length})
             </button>
             <button
               onClick={() => setActiveTab('results')}
-              className={`flex-1 px-6 py-4 font-semibold transition-colors ${
-                activeTab === 'results'
-                  ? `${colors.primary} text-white`
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+              style={{ ...styles.tab, ...(activeTab === 'results' ? styles.activeTab : {}) }}
             >
-              <CheckCircle className="w-5 h-5 inline mr-2" />
+              <CheckCircle style={{ width: '20px', height: '20px', display: 'inline', marginRight: '8px' }} />
               Results ({sendResults.length})
             </button>
           </div>
 
-          <div className="p-6">
-            {/* Configure & Upload Tab */}
+          <div style={{ padding: '24px' }}>
             {activeTab === 'upload' && (
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-xl font-bold text-gray-800 mb-4">Meta WhatsApp Template Configuration - Wedding {selectedWedding}</h3>
-                  <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 mb-4">
-                    <p className="text-sm text-blue-800">
-                      <strong>📝 Important:</strong> Enter the exact name of your approved Meta WhatsApp template. 
-                      The template should have a variable <code className="bg-blue-100 px-2 py-1 rounded">{'{1}'}</code> which will be replaced with the guest name.
-                    </p>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Template Name <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g., wedding_invitation"
-                        value={templateName}
-                        onChange={(e) => setTemplateName(e.target.value)}
-                        className={`w-full px-4 py-3 border-2 border-gray-200 rounded-lg ${colors.focus} focus:outline-none`}
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Must match your approved template name in Meta</p>
-                    </div>
+              <div>
+                <h3 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '16px' }}>
+                  Meta WhatsApp Template Configuration - Wedding {selectedWedding}
+                </h3>
 
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Template Language
-                      </label>
-                      <select
-                        value={templateLanguage}
-                        onChange={(e) => setTemplateLanguage(e.target.value)}
-                        className={`w-full px-4 py-3 border-2 border-gray-200 rounded-lg ${colors.focus} focus:outline-none`}
-                      >
-                        <option value="en">English</option>
-                        <option value="hi">Hindi (हिंदी)</option>
-                        <option value="en_US">English (US)</option>
-                        <option value="en_GB">English (UK)</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4 mt-4">
-                    <p className="text-sm text-yellow-800">
-                      <strong>⚠️ Before sending:</strong>
-                      <br/>1. Make sure your template is approved in Meta Business Manager
-                      <br/>2. Template must have variable <code className="bg-yellow-100 px-2 py-1 rounded">{'{1}'}</code> for guest name
-                      <br/>3. Test with 1-2 numbers first before bulk sending
-                    </p>
-                  </div>
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', fontWeight: '600', marginBottom: '8px' }}>
+                    Template Name <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g., wedding_invitation"
+                    value={templateName}
+                    onChange={(e) => setTemplateName(e.target.value)}
+                    style={styles.input}
+                  />
                 </div>
 
-                <div>
-                  <h3 className="text-xl font-bold text-gray-800 mb-4">Upload Guest List for Wedding {selectedWedding}</h3>
-                  <div className={`border-4 border-dashed border-gray-300 rounded-xl p-12 text-center hover:${colors.border} transition-colors`}>
-                    <Upload className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <label className="cursor-pointer">
-                      <span className="text-lg text-gray-600">
-                        Click to upload Excel file or drag and drop
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', fontWeight: '600', marginBottom: '8px' }}>
+                    Template Language
+                  </label>
+                  <select
+                    value={templateLanguage}
+                    onChange={(e) => setTemplateLanguage(e.target.value)}
+                    style={styles.input}
+                  >
+                    <option value="en">English</option>
+                    <option value="hi">Hindi (हिंदी)</option>
+                    <option value="en_US">English (US)</option>
+                    <option value="en_GB">English (UK)</option>
+                  </select>
+                </div>
+
+                <div style={{ marginBottom: '24px' }}>
+                  <h3 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '16px' }}>
+                    Upload Guest List for Wedding {selectedWedding}
+                  </h3>
+                  <div style={{ 
+                    border: '4px dashed #d1d5db', 
+                    borderRadius: '12px', 
+                    padding: '48px', 
+                    textAlign: 'center',
+                    cursor: 'pointer'
+                  }}>
+                    <Upload style={{ width: '64px', height: '64px', color: '#9ca3af', margin: '0 auto 16px' }} />
+                    <label style={{ cursor: 'pointer' }}>
+                      <span style={{ fontSize: '18px', color: '#6b7280' }}>
+                        Click to upload Excel file
                       </span>
                       <input
                         type="file"
                         accept=".xlsx,.xls"
                         onChange={handleFileUpload}
-                        className="hidden"
+                        style={{ display: 'none' }}
                       />
                     </label>
-                    <p className="text-sm text-gray-500 mt-2">
-                      Excel file should have columns: "Guest Name" and "Phone Number"
-                    </p>
                   </div>
                 </div>
 
-                <div className="flex gap-4">
+                <div style={{ display: 'flex', gap: '16px' }}>
                   <button
                     onClick={generatePreview}
                     disabled={guests.length === 0 || !templateName.trim()}
-                    className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    style={{ ...styles.button, flex: 1, justifyContent: 'center', opacity: (guests.length === 0 || !templateName.trim()) ? 0.5 : 1 }}
                   >
-                    <Eye className="w-5 h-5" />
+                    <Eye style={{ width: '20px', height: '20px' }} />
                     Preview Template
                   </button>
-                  
                   <button
                     onClick={sendInvitations}
                     disabled={sending || guests.length === 0 || !templateName.trim()}
-                    className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 ${colors.gradient} text-white font-semibold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
+                    style={{ ...styles.button, flex: 1, justifyContent: 'center', opacity: (sending || guests.length === 0 || !templateName.trim()) ? 0.5 : 1 }}
                   >
-                    <Send className="w-5 h-5" />
+                    <Send style={{ width: '20px', height: '20px' }} />
                     {sending ? 'Sending...' : `Send to All (${guests.length})`}
                   </button>
                 </div>
               </div>
             )}
 
-            {/* Guest List Tab */}
             {activeTab === 'guests' && (
               <div>
-                <h3 className="text-xl font-bold text-gray-800 mb-4">Guest List - Wedding {selectedWedding}</h3>
+                <h3 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '16px' }}>
+                  Guest List - Wedding {selectedWedding}
+                </h3>
                 {guests.length === 0 ? (
-                  <div className="text-center py-12 text-gray-500">
-                    <Users className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                    <p>No guests uploaded yet for Wedding {selectedWedding}. Please upload an Excel file.</p>
+                  <div style={{ textAlign: 'center', padding: '48px', color: '#6b7280' }}>
+                    <Users style={{ width: '64px', height: '64px', margin: '0 auto 16px', color: '#d1d5db' }} />
+                    <p>No guests uploaded yet for Wedding {selectedWedding}</p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-gray-100">
-                        <tr>
-                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">S.No</th>
-                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Guest Name</th>
-                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Phone Number</th>
-                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ backgroundColor: '#f3f4f6' }}>
+                          <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>S.No</th>
+                          <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>Guest Name</th>
+                          <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>Phone Number</th>
+                          <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>Status</th>
                         </tr>
                       </thead>
                       <tbody>
                         {guests.map((guest) => (
-                          <tr key={guest.id} className="border-b hover:bg-gray-50">
-                            <td className="px-4 py-3 text-sm text-gray-600">{guest.id}</td>
-                            <td className="px-4 py-3 text-sm font-medium text-gray-800">{guest.name}</td>
-                            <td className="px-4 py-3 text-sm text-gray-600">{guest.phoneNumber}</td>
-                            <td className="px-4 py-3">
-                              {guest.status === 'sent' && (
-                                <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
-                                  <CheckCircle className="w-5 h-5" />
-                                <span className="text-sm font-semibold">Sent Successfully</span>
-                              </div>
+                          <tr key={guest.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                            <td style={{ padding: '12px' }}>{guest.id}</td>
+                            <td style={{ padding: '12px', fontWeight: '500' }}>{guest.name}</td>
+                            <td style={{ padding: '12px' }}>{guest.phoneNumber}</td>
+                            <td style={{ padding: '12px' }}>
+                              {guest.status === 'sent' && <span style={{ color: '#10b981', fontWeight: '600' }}>✓ Sent</span>}
+                              {guest.status === 'failed' && <span style={{ color: '#ef4444', fontWeight: '600' }}>✗ Failed</span>}
+                              {guest.status === 'pending' && <span style={{ color: '#f59e0b', fontWeight: '600' }}>⏳ Pending</span>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'messages' && (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <h3 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0 }}>
+                    Incoming Messages - Wedding {selectedWedding}
+                  </h3>
+                  <button onClick={fetchIncomingMessages} style={styles.button}>
+                    <RefreshCw style={{ width: '16px', height: '16px' }} />
+                    Refresh
+                  </button>
+                </div>
+                {incomingMessages.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '48px', color: '#6b7280' }}>
+                    <MessageSquare style={{ width: '64px', height: '64px', margin: '0 auto 16px', color: '#d1d5db' }} />
+                    <p>No messages yet for Wedding {selectedWedding}</p>
+                  </div>
+                ) : (
+                  <div>
+                    {incomingMessages.map((msg, idx) => (
+                      <div key={idx} style={{ backgroundColor: colors.bg, padding: '16px', borderRadius: '8px', marginBottom: '12px', border: `2px solid ${colors.primary}` }}>
+                        <p style={{ fontWeight: 'bold', marginBottom: '8px' }}>{msg.name || 'Unknown'} - {msg.phoneNumber}</p>
+                        <p style={{ backgroundColor: 'white', padding: '12px', borderRadius: '4px', marginBottom: '8px' }}>{msg.messageBody || 'empty message'}</p>
+                        <p style={{ fontSize: '12px', color: '#6b7280' }}>{new Date(msg.timestamp).toLocaleString()}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'results' && (
+              <div>
+                <h3 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '16px' }}>
+                  Sending Results - Wedding {selectedWedding}
+                </h3>
+                {sendResults.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '48px', color: '#6b7280' }}>
+                    <CheckCircle style={{ width: '64px', height: '64px', margin: '0 auto 16px', color: '#d1d5db' }} />
+                    <p>No results yet. Send invitations to see results here.</p>
+                  </div>
+                ) : (
+                  <div>
+                    {sendResults.map((result, idx) => (
+                      <div key={idx} style={{ 
+                        padding: '16px', 
+                        borderRadius: '8px', 
+                        marginBottom: '12px',
+                        backgroundColor: result.success ? '#d1fae5' : '#fee2e2',
+                        border: `2px solid ${result.success ? '#10b981' : '#ef4444'}`
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <div>
+                            <p style={{ fontWeight: 'bold' }}>{result.guest}</p>
+                            <p style={{ fontSize: '14px', color: '#6b7280' }}>{result.phone}</p>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            {result.success ? (
+                              <span style={{ color: '#10b981', fontWeight: 'bold' }}>✓ Sent Successfully</span>
                             ) : (
-                              <div className="flex items-center gap-2 text-red-700">
-                                <XCircle className="w-5 h-5" />
-                                <span className="text-sm font-semibold">Failed</span>
-                              </div>
+                              <span style={{ color: '#ef4444', fontWeight: 'bold' }}>✗ Failed</span>
                             )}
-                            {result.error && (
-                              <p className="text-xs text-red-600 mt-1">{result.error}</p>
-                            )}
+                            {result.error && <p style={{ fontSize: '12px', color: '#ef4444', marginTop: '4px' }}>{result.error}</p>}
                           </div>
                         </div>
                       </div>
@@ -546,46 +588,15 @@ export default function AdminPanel() {
 
         {/* Preview Modal */}
         {showPreview && previewGuest && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-2xl font-bold text-gray-800">Template Preview - Wedding {selectedWedding}</h3>
-                <button
-                  onClick={() => setShowPreview(false)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <XCircle className="w-6 h-6" />
-                </button>
+          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', zIndex: 50 }}>
+            <div style={{ backgroundColor: 'white', borderRadius: '16px', maxWidth: '600px', width: '100%', padding: '24px' }}>
+              <h3 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '16px' }}>Template Preview - Wedding {selectedWedding}</h3>
+              <div style={{ backgroundColor: '#dbeafe', padding: '16px', borderRadius: '8px', marginBottom: '16px' }}>
+                <p><strong>Template:</strong> {templateName}</p>
+                <p><strong>Language:</strong> {templateLanguage}</p>
+                <p><strong>Sample Guest:</strong> {previewGuest.name}</p>
               </div>
-              <div className="bg-blue-50 rounded-lg p-6 mb-4">
-                <p className="text-sm text-blue-800 mb-2">
-                  <strong>Template Name:</strong> <code className="bg-blue-100 px-2 py-1 rounded">{templateName}</code>
-                </p>
-                <p className="text-sm text-blue-800 mb-2">
-                  <strong>Language:</strong> {templateLanguage}
-                </p>
-                <p className="text-sm text-blue-800">
-                  <strong>Sample Guest:</strong> {previewGuest.name}
-                </p>
-              </div>
-              <div className="bg-gray-50 rounded-lg p-6 border-2 border-gray-200">
-                <p className="text-sm text-gray-700 mb-2">
-                  <strong>What will be sent:</strong>
-                </p>
-                <p className="text-sm text-gray-600">
-                  Your approved Meta template "<strong>{templateName}</strong>" will be sent to all guests.
-                  <br/>
-                  <br/>
-                  The variable <code className="bg-gray-200 px-2 py-1 rounded">{'{1}'}</code> in your template will be replaced with: <strong>{previewGuest.name}</strong>
-                  <br/>
-                  <br/>
-                  <em className="text-gray-500">Note: The actual message content is controlled by your Meta template.</em>
-                </p>
-              </div>
-              <button
-                onClick={() => setShowPreview(false)}
-                className={`mt-4 w-full px-6 py-3 ${colors.primary} text-white rounded-lg transition-colors`}
-              >
+              <button onClick={() => setShowPreview(false)} style={{ ...styles.button, width: '100%', justifyContent: 'center' }}>
                 Close Preview
               </button>
             </div>
@@ -594,132 +605,4 @@ export default function AdminPanel() {
       </div>
     </div>
   );
-} className="w-3 h-3" />
-                                  Sent
-                                </span>
-                              )}
-                              {guest.status === 'failed' && (
-                                <span className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">
-                                  <XCircle className="w-3 h-3" />
-                                  Failed
-                                </span>
-                              )}
-                              {guest.status === 'pending' && (
-                                <span className="inline-flex items-center gap-1 px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-semibold">
-                                  <Clock className="w-3 h-3" />
-                                  Pending
-                                </span>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Messages Tab */}
-            {activeTab === 'messages' && (
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-bold text-gray-800">Incoming WhatsApp Messages - Wedding {selectedWedding}</h3>
-                  <button
-                    onClick={fetchIncomingMessages}
-                    disabled={loadingMessages}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-300"
-                  >
-                    <RefreshCw className={`w-4 h-4 ${loadingMessages ? 'animate-spin' : ''}`} />
-                    Refresh
-                  </button>
-                </div>
-
-                {loadingMessages && incomingMessages.length === 0 ? (
-                  <div className="text-center py-12">
-                    <RefreshCw className="w-16 h-16 mx-auto mb-4 text-gray-300 animate-spin" />
-                    <p className="text-gray-500">Loading messages...</p>
-                  </div>
-                ) : incomingMessages.length === 0 ? (
-                  <div className="text-center py-12 text-gray-500">
-                    <MessageSquare className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                    <p>No messages received yet for Wedding {selectedWedding}.</p>
-                    <p className="text-sm mt-2">Messages from guests will appear here.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {incomingMessages.map((message, index) => (
-                      <div
-                        key={index}
-                        className="bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-lg p-4 hover:shadow-md transition-shadow"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <MessageSquare className="w-5 h-5 text-blue-600" />
-                              <p className="font-semibold text-gray-800">
-                                {message.name || 'Unknown'}
-                              </p>
-                              <span className="text-sm text-gray-500">
-                                {message.phoneNumber}
-                              </span>
-                            </div>
-                            <div className="bg-white border border-gray-300 rounded-lg p-3 mb-2">
-                              <p className="text-gray-800 whitespace-pre-wrap">
-                              {message.messageBody || "empty message"}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-4 text-xs text-gray-500">
-                              <span>📅 {new Date(message.timestamp).toLocaleDateString()}</span>
-                              <span>🕐 {new Date(message.timestamp).toLocaleTimeString()}</span>
-                              {message.messageId && (
-                                <span className="text-xs bg-blue-100 px-2 py-1 rounded">
-                                  ID: {message.messageId.substring(0, 8)}...
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <div className="mt-4 bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4">
-                  <p className="text-sm text-yellow-800">
-                    <strong>💡 Note:</strong> Messages are stored temporarily. Download important conversations for your records.
-                    Auto-refreshes every 30 seconds.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Results Tab */}
-            {activeTab === 'results' && (
-              <div>
-                <h3 className="text-xl font-bold text-gray-800 mb-4">Sending Results - Wedding {selectedWedding}</h3>
-                {sendResults.length === 0 ? (
-                  <div className="text-center py-12 text-gray-500">
-                    <CheckCircle className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                    <p>No results yet. Send invitations to see results here.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {sendResults.map((result, index) => (
-                      <div
-                        key={index}
-                        className={`p-4 rounded-lg border-2 ${
-                          result.success
-                            ? 'bg-green-50 border-green-200'
-                            : 'bg-red-50 border-red-200'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-semibold text-gray-800">{result.guest}</p>
-                            <p className="text-sm text-gray-600">{result.phone}</p>
-                          </div>
-                          <div className="text-right">
-                            {result.success ? (
-                              <div className="flex items-center gap-2 text-green-700">
-                                <CheckCircle
+}
