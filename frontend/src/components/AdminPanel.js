@@ -3,6 +3,7 @@ import { Upload, Send, Users, CheckCircle, XCircle, Clock, Download, Eye, Messag
 import * as XLSX from 'xlsx';
 
 export default function AdminPanel() {
+  const [selectedWedding, setSelectedWedding] = useState('1');
   const [guests, setGuests] = useState([]);
   const [templateName, setTemplateName] = useState('');
   const [templateLanguage, setTemplateLanguage] = useState('en');
@@ -16,55 +17,48 @@ export default function AdminPanel() {
 
   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
-  // Fetch incoming messages
+  // Reset state when wedding changes
+  useEffect(() => {
+    setGuests([]);
+    setTemplateName('');
+    setSendResults([]);
+    setActiveTab('upload');
+    fetchIncomingMessages();
+  }, [selectedWedding]);
+
+  // Fetch incoming messages for selected wedding
   const fetchIncomingMessages = useCallback(async () => {
-  setLoadingMessages(true);
-  try {
-    const response = await fetch(`${API_URL}/api/whatsapp/incoming-messages`);
-    const result = await response.json();
-    
-    if (result.success) {
-      setIncomingMessages(result.messages);
+    setLoadingMessages(true);
+    try {
+      const response = await fetch(`${API_URL}/api/whatsapp/incoming-messages?weddingId=${selectedWedding}`);
+      const result = await response.json();
+      
+      if (result.success) {
+        setIncomingMessages(result.messages);
+      }
+    } catch (error) {
+      console.error('Error fetching messages:', error);
     }
-  } catch (error) {
-    console.error('Error fetching messages:', error);
-  }
-  setLoadingMessages(false);
-}, [API_URL]);
+    setLoadingMessages(false);
+  }, [API_URL, selectedWedding]);
 
   // Fetch messages when Messages tab is opened
   useEffect(() => {
-  if (activeTab === 'messages') {
-    fetchIncomingMessages();
-  }
-}, [activeTab, fetchIncomingMessages]);
-
-useEffect(() => {
-  if (activeTab !== 'messages') return;
-
-  const interval = setInterval(() => {
-    fetchIncomingMessages();
-  }, 30000);
-
-  return () => clearInterval(interval);
-}, [activeTab, fetchIncomingMessages]);
+    if (activeTab === 'messages') {
+      fetchIncomingMessages();
+    }
+  }, [activeTab, fetchIncomingMessages]);
 
   // Auto-refresh messages every 30 seconds when on Messages tab
   useEffect(() => {
-  if (activeTab === 'messages') {
-    fetchIncomingMessages();
-  }
-}, [activeTab, fetchIncomingMessages]);
+    if (activeTab !== 'messages') return;
 
-useEffect(() => {
-  if (activeTab !== 'messages') return;
+    const interval = setInterval(() => {
+      fetchIncomingMessages();
+    }, 30000);
 
-  const interval = setInterval(() => {
-    fetchIncomingMessages();
-  }, 30000);
-
-  return () => clearInterval(interval);
-}, [activeTab, fetchIncomingMessages]);
+    return () => clearInterval(interval);
+  }, [activeTab, fetchIncomingMessages]);
 
   // Handle Excel file upload
   const handleFileUpload = async (e) => {
@@ -86,7 +80,7 @@ useEffect(() => {
       }));
 
       setGuests(guestList);
-      alert(`Successfully loaded ${guestList.length} guests!`);
+      alert(`Successfully loaded ${guestList.length} guests for Wedding ${selectedWedding}!`);
     } catch (error) {
       console.error('Error reading Excel file:', error);
       alert('Error reading Excel file. Please make sure it has columns: "Guest Name" and "Phone Number"');
@@ -120,13 +114,12 @@ useEffect(() => {
     setSendResults([]);
 
     const results = [];
-    const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
     for (let i = 0; i < guests.length; i++) {
       const guest = guests[i];
       
       try {
-        console.log(`Sending template to: ${guest.name} (${guest.phoneNumber})`);
+        console.log(`Sending template to: ${guest.name} (${guest.phoneNumber}) for Wedding ${selectedWedding}`);
 
         const response = await fetch(`${API_URL}/api/whatsapp/send-template-invitation`, {
           method: 'POST',
@@ -137,7 +130,8 @@ useEffect(() => {
             phoneNumber: guest.phoneNumber,
             guestName: guest.name,
             templateName: templateName,
-            templateLanguage: templateLanguage
+            templateLanguage: templateLanguage,
+            weddingId: selectedWedding
           })
         });
 
@@ -201,7 +195,7 @@ useEffect(() => {
     const ws = XLSX.utils.aoa_to_sheet(template);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Guest List');
-    XLSX.writeFile(wb, 'guest-list-template.xlsx');
+    XLSX.writeFile(wb, `wedding${selectedWedding}-guest-list-template.xlsx`);
   };
 
   const stats = {
@@ -211,26 +205,53 @@ useEffect(() => {
     pending: guests.filter(g => g.status === 'pending').length
   };
 
+  const weddingColors = {
+    '1': { primary: 'pink-500', secondary: 'purple-500', light: 'pink-50' },
+    '2': { primary: 'blue-500', secondary: 'cyan-500', light: 'blue-50' },
+    '3': { primary: 'green-500', secondary: 'emerald-500', light: 'green-50' }
+  };
+
+  const colors = weddingColors[selectedWedding];
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 p-6">
+    <div className={`min-h-screen bg-gradient-to-br from-${colors.light} via-purple-50 to-blue-50 p-6`}>
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
+        {/* Header with Wedding Selector */}
         <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
-                <Send className="w-8 h-8 text-pink-500" />
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex-1">
+              <h1 className={`text-3xl font-bold text-gray-800 flex items-center gap-3`}>
+                <Send className={`w-8 h-8 text-${colors.primary}`} />
                 Wedding Invitation Manager
               </h1>
               <p className="text-gray-600 mt-2">Upload guest list and send WhatsApp invitations using Meta templates</p>
             </div>
             <button
               onClick={downloadTemplate}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+              className={`flex items-center gap-2 px-4 py-2 bg-${colors.primary} text-white rounded-lg hover:bg-${colors.secondary} transition-colors`}
             >
               <Download className="w-4 h-4" />
               Download Template
             </button>
+          </div>
+          
+          {/* Wedding Selector */}
+          <div className="border-t pt-4">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Select Wedding
+            </label>
+            <select
+              value={selectedWedding}
+              onChange={(e) => setSelectedWedding(e.target.value)}
+              className="w-full md:w-64 px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-pink-400 focus:outline-none text-lg font-semibold"
+            >
+              <option value="1">🎊 Wedding 1</option>
+              <option value="2">🎉 Wedding 2</option>
+              <option value="3">🎈 Wedding 3</option>
+            </select>
+            <p className="text-xs text-gray-500 mt-2">
+              Each wedding has separate guest lists and tracking
+            </p>
           </div>
         </div>
 
@@ -242,7 +263,7 @@ useEffect(() => {
                 <p className="text-gray-600 text-sm">Total Guests</p>
                 <p className="text-3xl font-bold text-gray-800">{stats.total}</p>
               </div>
-              <Users className="w-10 h-10 text-blue-500" />
+              <Users className={`w-10 h-10 text-${colors.primary}`} />
             </div>
           </div>
           
@@ -284,7 +305,7 @@ useEffect(() => {
               onClick={() => setActiveTab('upload')}
               className={`flex-1 px-6 py-4 font-semibold transition-colors ${
                 activeTab === 'upload'
-                  ? 'bg-pink-500 text-white'
+                  ? `bg-${colors.primary} text-white`
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
@@ -295,7 +316,7 @@ useEffect(() => {
               onClick={() => setActiveTab('guests')}
               className={`flex-1 px-6 py-4 font-semibold transition-colors ${
                 activeTab === 'guests'
-                  ? 'bg-pink-500 text-white'
+                  ? `bg-${colors.primary} text-white`
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
@@ -306,7 +327,7 @@ useEffect(() => {
               onClick={() => setActiveTab('messages')}
               className={`flex-1 px-6 py-4 font-semibold transition-colors ${
                 activeTab === 'messages'
-                  ? 'bg-pink-500 text-white'
+                  ? `bg-${colors.primary} text-white`
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
@@ -317,7 +338,7 @@ useEffect(() => {
               onClick={() => setActiveTab('results')}
               className={`flex-1 px-6 py-4 font-semibold transition-colors ${
                 activeTab === 'results'
-                  ? 'bg-pink-500 text-white'
+                  ? `bg-${colors.primary} text-white`
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
@@ -331,7 +352,7 @@ useEffect(() => {
             {activeTab === 'upload' && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-xl font-bold text-gray-800 mb-4">Meta WhatsApp Template Configuration</h3>
+                  <h3 className="text-xl font-bold text-gray-800 mb-4">Meta WhatsApp Template Configuration - Wedding {selectedWedding}</h3>
                   <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 mb-4">
                     <p className="text-sm text-blue-800">
                       <strong>📝 Important:</strong> Enter the exact name of your approved Meta WhatsApp template. 
@@ -349,7 +370,7 @@ useEffect(() => {
                         placeholder="e.g., wedding_invitation"
                         value={templateName}
                         onChange={(e) => setTemplateName(e.target.value)}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-pink-400 focus:outline-none"
+                        className={`w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-${colors.primary} focus:outline-none`}
                       />
                       <p className="text-xs text-gray-500 mt-1">Must match your approved template name in Meta</p>
                     </div>
@@ -361,7 +382,7 @@ useEffect(() => {
                       <select
                         value={templateLanguage}
                         onChange={(e) => setTemplateLanguage(e.target.value)}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-pink-400 focus:outline-none"
+                        className={`w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-${colors.primary} focus:outline-none`}
                       >
                         <option value="en">English</option>
                         <option value="hi">Hindi (हिंदी)</option>
@@ -382,8 +403,8 @@ useEffect(() => {
                 </div>
 
                 <div>
-                  <h3 className="text-xl font-bold text-gray-800 mb-4">Upload Guest List</h3>
-                  <div className="border-4 border-dashed border-gray-300 rounded-xl p-12 text-center hover:border-pink-400 transition-colors">
+                  <h3 className="text-xl font-bold text-gray-800 mb-4">Upload Guest List for Wedding {selectedWedding}</h3>
+                  <div className={`border-4 border-dashed border-gray-300 rounded-xl p-12 text-center hover:border-${colors.primary} transition-colors`}>
                     <Upload className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                     <label className="cursor-pointer">
                       <span className="text-lg text-gray-600">
@@ -406,7 +427,7 @@ useEffect(() => {
                   <button
                     onClick={generatePreview}
                     disabled={guests.length === 0 || !templateName.trim()}
-                    className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed`}
                   >
                     <Eye className="w-5 h-5" />
                     Preview Template
@@ -415,7 +436,7 @@ useEffect(() => {
                   <button
                     onClick={sendInvitations}
                     disabled={sending || guests.length === 0 || !templateName.trim()}
-                    className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-pink-500 to-purple-500 text-white font-semibold rounded-lg hover:from-pink-600 hover:to-purple-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-${colors.primary} to-${colors.secondary} text-white font-semibold rounded-lg hover:from-${colors.secondary} hover:to-${colors.primary} transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     <Send className="w-5 h-5" />
                     {sending ? 'Sending...' : `Send to All (${guests.length})`}
@@ -427,11 +448,11 @@ useEffect(() => {
             {/* Guest List Tab */}
             {activeTab === 'guests' && (
               <div>
-                <h3 className="text-xl font-bold text-gray-800 mb-4">Guest List</h3>
+                <h3 className="text-xl font-bold text-gray-800 mb-4">Guest List - Wedding {selectedWedding}</h3>
                 {guests.length === 0 ? (
                   <div className="text-center py-12 text-gray-500">
                     <Users className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                    <p>No guests uploaded yet. Please upload an Excel file.</p>
+                    <p>No guests uploaded yet for Wedding {selectedWedding}. Please upload an Excel file.</p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -483,7 +504,7 @@ useEffect(() => {
             {activeTab === 'messages' && (
               <div>
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-bold text-gray-800">Incoming WhatsApp Messages</h3>
+                  <h3 className="text-xl font-bold text-gray-800">Incoming WhatsApp Messages - Wedding {selectedWedding}</h3>
                   <button
                     onClick={fetchIncomingMessages}
                     disabled={loadingMessages}
@@ -502,7 +523,7 @@ useEffect(() => {
                 ) : incomingMessages.length === 0 ? (
                   <div className="text-center py-12 text-gray-500">
                     <MessageSquare className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                    <p>No messages received yet.</p>
+                    <p>No messages received yet for Wedding {selectedWedding}.</p>
                     <p className="text-sm mt-2">Messages from guests will appear here.</p>
                   </div>
                 ) : (
@@ -510,7 +531,7 @@ useEffect(() => {
                     {incomingMessages.map((message, index) => (
                       <div
                         key={index}
-                        className="bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                        className={`bg-gradient-to-r from-${colors.light} to-purple-50 border-2 border-blue-200 rounded-lg p-4 hover:shadow-md transition-shadow`}
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
@@ -556,7 +577,7 @@ useEffect(() => {
             {/* Results Tab */}
             {activeTab === 'results' && (
               <div>
-                <h3 className="text-xl font-bold text-gray-800 mb-4">Sending Results</h3>
+                <h3 className="text-xl font-bold text-gray-800 mb-4">Sending Results - Wedding {selectedWedding}</h3>
                 {sendResults.length === 0 ? (
                   <div className="text-center py-12 text-gray-500">
                     <CheckCircle className="w-16 h-16 mx-auto mb-4 text-gray-300" />
@@ -576,7 +597,29 @@ useEffect(() => {
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="font-semibold text-gray-800">{result.guest}</p>
-                            <p className="text-sm text-gray-600">{result.phone}</p>
+                            <p className="text-sm text-gray-600">
+                  Your approved Meta template "<strong>{templateName}</strong>" will be sent to all guests.
+                  <br/>
+                  <br/>
+                  The variable <code className="bg-gray-200 px-2 py-1 rounded">{'{1}'}</code> in your template will be replaced with: <strong>{previewGuest.name}</strong>
+                  <br/>
+                  <br/>
+                  <em className="text-gray-500">Note: The actual message content is controlled by your Meta template.</em>
+                </p>
+              </div>
+              <button
+                onClick={() => setShowPreview(false)}
+                className={`mt-4 w-full px-6 py-3 bg-${colors.primary} text-white rounded-lg hover:bg-${colors.secondary} transition-colors`}
+              >
+                Close Preview
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}{result.phone}</p>
                           </div>
                           <div className="text-right">
                             {result.success ? (
@@ -609,7 +652,7 @@ useEffect(() => {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-2xl font-bold text-gray-800">Template Preview</h3>
+                <h3 className="text-2xl font-bold text-gray-800">Template Preview - Wedding {selectedWedding}</h3>
                 <button
                   onClick={() => setShowPreview(false)}
                   className="text-gray-500 hover:text-gray-700"
@@ -633,25 +676,3 @@ useEffect(() => {
                   <strong>What will be sent:</strong>
                 </p>
                 <p className="text-sm text-gray-600">
-                  Your approved Meta template "<strong>{templateName}</strong>" will be sent to all guests.
-                  <br/>
-                  <br/>
-                  The variable <code className="bg-gray-200 px-2 py-1 rounded">{'{1}'}</code> in your template will be replaced with: <strong>{previewGuest.name}</strong>
-                  <br/>
-                  <br/>
-                  <em className="text-gray-500">Note: The actual message content is controlled by your Meta template.</em>
-                </p>
-              </div>
-              <button
-                onClick={() => setShowPreview(false)}
-                className="mt-4 w-full px-6 py-3 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition-colors"
-              >
-                Close Preview
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
