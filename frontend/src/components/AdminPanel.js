@@ -609,8 +609,13 @@ export default function AdminPanel() {
               </div>
               <button
                 onClick={() => setShowPreview(false)}
-                className={`mt-4 w-full px-6 py-3 bg-${colors.primary} text-white rounded-lg hover:bg-${colors.secondary} transition-colors`}
-              >
+                className="mt-4 w-full px-6 py-3 text-white rounded-lg transition-colors"
+                style={{
+                 backgroundColor: colors.primary
+                }}
+                onMouseEnter={e => (e.currentTarget.style.backgroundColor = colors.secondary)}
+                onMouseLeave={e => (e.currentTarget.style.backgroundColor = colors.primary)}
+               >
                 Close Preview
               </button>
             </div>
