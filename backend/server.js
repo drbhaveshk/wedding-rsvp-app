@@ -1,4 +1,4 @@
-// server.js - Main Backend Server (with Google Drive)
+// server.js - Main Backend Server (with Multi-Wedding Support)
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -55,19 +55,31 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 }
 });
 
-// In-memory storage
-let rsvpData = [];
-let serialNumber = 1;
-let incomingMessages = [];
-let googleDriveFileId = null; // Store the file ID for updates
+// In-memory storage for each wedding
+const weddingData = {
+  '1': { rsvpData: [], serialNumber: 1, incomingMessages: [], googleDriveFileId: null },
+  '2': { rsvpData: [], serialNumber: 1, incomingMessages: [], googleDriveFileId: null },
+  '3': { rsvpData: [], serialNumber: 1, incomingMessages: [], googleDriveFileId: null }
+};
 
-// Excel file configuration
-const EXCEL_FILE_NAME = 'wedding-rsvp-data.xlsx';
-const EXCEL_FILE_PATH = path.join(__dirname, EXCEL_FILE_NAME);
-const GOOGLE_DRIVE_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID || null;
+// Google Drive folder IDs for each wedding (can be configured in .env)
+const GOOGLE_DRIVE_FOLDERS = {
+  '1': process.env.GOOGLE_DRIVE_FOLDER_ID_WEDDING1 || process.env.GOOGLE_DRIVE_FOLDER_ID || null,
+  '2': process.env.GOOGLE_DRIVE_FOLDER_ID_WEDDING2 || process.env.GOOGLE_DRIVE_FOLDER_ID || null,
+  '3': process.env.GOOGLE_DRIVE_FOLDER_ID_WEDDING3 || process.env.GOOGLE_DRIVE_FOLDER_ID || null
+};
 
-// Initialize Excel file
-async function initializeExcel() {
+// Get Excel file name for wedding
+function getExcelFileName(weddingId) {
+  return `wedding${weddingId}-rsvp-data.xlsx`;
+}
+
+function getExcelFilePath(weddingId) {
+  return path.join(__dirname, getExcelFileName(weddingId));
+}
+
+// Initialize Excel file for a wedding
+async function initializeExcel(weddingId) {
   try {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("RSVP Responses");
@@ -103,20 +115,22 @@ async function initializeExcel() {
       };
     });
 
-    await workbook.xlsx.writeFile(EXCEL_FILE_PATH);
-    console.log("✅ Excel file initialized successfully");
+    const filePath = getExcelFilePath(weddingId);
+    await workbook.xlsx.writeFile(filePath);
+    console.log(`✅ Excel file initialized for Wedding ${weddingId}`);
   } catch (error) {
-    console.error("❌ Error initializing Excel:", error);
+    console.error(`❌ Error initializing Excel for Wedding ${weddingId}:`, error);
   }
 }
 
 // Update Excel file with new data
-async function updateExcel(data) {
+async function updateExcel(weddingId, data) {
   try {
-    console.log("📊 Starting Excel update for:", data.guestName);
+    console.log(`📊 Starting Excel update for Wedding ${weddingId}:`, data.guestName);
     
+    const filePath = getExcelFilePath(weddingId);
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.readFile(EXCEL_FILE_PATH);
+    await workbook.xlsx.readFile(filePath);
     const worksheet = workbook.getWorksheet('RSVP Responses');
     
     if (!worksheet) {
@@ -183,43 +197,43 @@ async function updateExcel(data) {
       }
     }
 
-    await workbook.xlsx.writeFile(EXCEL_FILE_PATH);
-    console.log('✅ Excel file saved successfully');
+    await workbook.xlsx.writeFile(filePath);
+    console.log(`✅ Excel file saved for Wedding ${weddingId}`);
     
     return true;
 
   } catch (err) {
-    console.error('❌ Excel update error:', err);
+    console.error(`❌ Excel update error for Wedding ${weddingId}:`, err);
     return false;
   }
 }
 
 // Upload Excel file to Google Drive
-async function uploadExcelToDrive() {
+async function uploadExcelToDrive(weddingId) {
   try {
-    console.log('\n📤 Uploading Excel to Google Drive...');
+    const fileName = getExcelFileName(weddingId);
+    const filePath = getExcelFilePath(weddingId);
+    const folderId = GOOGLE_DRIVE_FOLDERS[weddingId];
+    
+    console.log(`\n📤 Uploading Excel for Wedding ${weddingId} to Google Drive...`);
     
     // Check if file already exists in Drive
-    const existingFile = await findFileByName(EXCEL_FILE_NAME, GOOGLE_DRIVE_FOLDER_ID);
+    const existingFile = await findFileByName(fileName, folderId);
     
     let result;
     
     if (existingFile.success && existingFile.file) {
       // Update existing file
       console.log('📝 File exists, updating...');
-      result = await updateFileInGoogleDrive(existingFile.file.id, EXCEL_FILE_PATH);
-      googleDriveFileId = existingFile.file.id;
+      result = await updateFileInGoogleDrive(existingFile.file.id, filePath);
+      weddingData[weddingId].googleDriveFileId = existingFile.file.id;
     } else {
       // Upload new file
       console.log('📤 Creating new file...');
-      result = await uploadToGoogleDrive(
-        EXCEL_FILE_PATH, 
-        EXCEL_FILE_NAME, 
-        GOOGLE_DRIVE_FOLDER_ID
-      );
+      result = await uploadToGoogleDrive(filePath, fileName, folderId);
       
       if (result.success) {
-        googleDriveFileId = result.fileId;
+        weddingData[weddingId].googleDriveFileId = result.fileId;
         
         // Make file publicly accessible
         await makeFilePublic(result.fileId);
@@ -227,16 +241,16 @@ async function uploadExcelToDrive() {
     }
     
     if (result.success) {
-      console.log('✅ Google Drive upload successful!');
+      console.log(`✅ Google Drive upload successful for Wedding ${weddingId}!`);
       console.log('🔗 View Link:', result.webViewLink);
       return result;
     } else {
-      console.error('❌ Google Drive upload failed:', result.error);
+      console.error(`❌ Google Drive upload failed for Wedding ${weddingId}:`, result.error);
       return result;
     }
     
   } catch (error) {
-    console.error('❌ Error uploading to Drive:', error);
+    console.error(`❌ Error uploading to Drive for Wedding ${weddingId}:`, error);
     return {
       success: false,
       error: error.message
@@ -250,8 +264,9 @@ async function uploadExcelToDrive() {
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'ok', 
-    message: 'Wedding RSVP Backend is running',
+    message: 'Wedding RSVP Backend is running (Multi-Wedding Support)',
     timestamp: new Date().toISOString(),
+    weddings: ['1', '2', '3'],
     whatsappConfigured: !!(process.env.META_PHONE_NUMBER_ID && process.env.META_ACCESS_TOKEN),
     googleDriveConfigured: !!(process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH || process.env.GOOGLE_SERVICE_ACCOUNT_KEY)
   });
@@ -261,55 +276,63 @@ app.get('/api/health', (req, res) => {
 app.get('/api/test', (req, res) => {
   res.json({
     success: true,
-    message: 'Backend is reachable',
-    cors: 'enabled'
+    message: 'Backend is reachable (Multi-Wedding Support)',
+    cors: 'enabled',
+    weddings: Object.keys(weddingData)
   });
 });
 
 // Submit RSVP
 app.post('/api/rsvp/submit', upload.array('aadharFiles', 10), async (req, res) => {
   try {
-    const { guestName, arrivalDate, departureDate, numberOfGuests, attending, aadharImages } = req.body;
+    const { weddingId = '1', guestName, arrivalDate, departureDate, numberOfGuests, attending, aadharImages } = req.body;
     
-    console.log('\n📝 ===== NEW RSVP SUBMISSION =====');
-console.log('Guest Name:', guestName);
-console.log('Number of Guests (raw):', numberOfGuests ?? 'Not provided');
-console.log('Attending:', attending);
+    // Validate wedding ID
+    if (!weddingData[weddingId]) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid wedding ID: ${weddingId}`
+      });
+    }
+    
+    console.log(`\n📝 ===== NEW RSVP SUBMISSION for WEDDING ${weddingId} =====`);
+    console.log('Guest Name:', guestName);
+    console.log('Number of Guests (raw):', numberOfGuests ?? 'Not provided');
+    console.log('Attending:', attending);
 
-// Basic required fields
-if (!guestName || !attending) {
-  console.log('❌ Validation failed: guestName or attending missing');
-  return res.status(400).json({
-    success: false,
-    message: 'Guest name and attending status are required.'
-  });
-}
+    // Basic required fields
+    if (!guestName || !attending) {
+      console.log('❌ Validation failed: guestName or attending missing');
+      return res.status(400).json({
+        success: false,
+        message: 'Guest name and attending status are required.'
+      });
+    }
 
-// Normalize numberOfGuests for validation and storage
-// numberOfGuests can be sent as null (frontend sends null for "no") or as a number
-let parsedNumberOfGuests = null;
-if (numberOfGuests !== undefined && numberOfGuests !== null && numberOfGuests !== '') {
-  parsedNumberOfGuests = parseInt(numberOfGuests, 10);
-  if (Number.isNaN(parsedNumberOfGuests)) parsedNumberOfGuests = null;
-}
+    // Normalize numberOfGuests
+    let parsedNumberOfGuests = null;
+    if (numberOfGuests !== undefined && numberOfGuests !== null && numberOfGuests !== '') {
+      parsedNumberOfGuests = parseInt(numberOfGuests, 10);
+      if (Number.isNaN(parsedNumberOfGuests)) parsedNumberOfGuests = null;
+    }
 
-// Determine conditional requirements
-const requiresGuests = attending === 'yes' || attending === 'maybe';
-const requiresAadhar = attending === 'yes' || attending === 'maybe';
+    // Determine conditional requirements
+    const requiresGuests = attending === 'yes' || attending === 'maybe';
+    const requiresAadhar = attending === 'yes' || attending === 'maybe';
 
-// If attending/maybe → numberOfGuests required and must be >= 1
-if (requiresGuests) {
-  if (parsedNumberOfGuests === null || parsedNumberOfGuests < 1) {
-    console.log('❌ Validation failed: numberOfGuests required for attending/maybe');
-    return res.status(400).json({
-      success: false,
-      message: 'Number of guests is required and must be at least 1 when attending or maybe.'
-    });
-  }
-} else {
-  // Not attending -> force 0 for Excel compatibility
-  parsedNumberOfGuests = 0;
-}
+    // If attending/maybe → numberOfGuests required and must be >= 1
+    if (requiresGuests) {
+      if (parsedNumberOfGuests === null || parsedNumberOfGuests < 1) {
+        console.log('❌ Validation failed: numberOfGuests required for attending/maybe');
+        return res.status(400).json({
+          success: false,
+          message: 'Number of guests is required and must be at least 1 when attending or maybe.'
+        });
+      }
+    } else {
+      // Not attending -> force 0 for Excel compatibility
+      parsedNumberOfGuests = 0;
+    }
     
     // Process uploaded files
     let aadharPaths = [];
@@ -340,7 +363,7 @@ if (requiresGuests) {
         for (let i = 0; i < images.length; i++) {
           const base64Data = images[i].replace(/^data:image\/\w+;base64,/, '');
           const buffer = Buffer.from(base64Data, 'base64');
-          const filename = `${Date.now()}-${i}-aadhar.jpg`;
+          const filename = `wedding${weddingId}-${Date.now()}-${i}-aadhar.jpg`;
           const filepath = path.join(__dirname, 'uploads', 'aadhar', filename);
           await fs.writeFile(filepath, buffer);
           aadharPaths.push(filepath);
@@ -356,7 +379,7 @@ if (requiresGuests) {
       }
     }
     
-    if (aadharPaths.length === 0 && (attending === 'yes' || attending === 'maybe')) {
+    if (aadharPaths.length === 0 && requiresAadhar) {
       console.log('❌ Validation failed: No Aadhar documents uploaded for attending guest');
       return res.status(400).json({ 
         success: false, 
@@ -365,10 +388,11 @@ if (requiresGuests) {
     }
     
     // Create RSVP entry
+    const wedding = weddingData[weddingId];
     const rsvpEntry = {
-      serialNo: serialNumber++,
+      serialNo: wedding.serialNumber++,
       guestName: guestName,
-      numberOfGuests: numberOfGuests ? parseInt(numberOfGuests) : 0,
+      numberOfGuests: parsedNumberOfGuests,
       arrivalDate: arrivalDate || null,
       departureDate: departureDate || null,
       attending: attending,
@@ -376,37 +400,38 @@ if (requiresGuests) {
       timestamp: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
     };
     
-    console.log('\n📋 RSVP Entry Created:');
+    console.log(`\n📋 RSVP Entry Created for Wedding ${weddingId}:`);
     console.log(JSON.stringify(rsvpEntry, null, 2));
     
     // Store in memory
-    rsvpData.push(rsvpEntry);
-    console.log(`📊 Total RSVPs in memory: ${rsvpData.length}`);
+    wedding.rsvpData.push(rsvpEntry);
+    console.log(`📊 Total RSVPs for Wedding ${weddingId}: ${wedding.rsvpData.length}`);
     
     // Update Excel file
-    console.log('\n📊 Updating Excel file...');
-    const excelUpdated = await updateExcel(rsvpEntry);
+    console.log(`\n📊 Updating Excel file for Wedding ${weddingId}...`);
+    const excelUpdated = await updateExcel(weddingId, rsvpEntry);
     if (!excelUpdated) {
-      console.error('❌ Failed to update Excel file');
+      console.error(`❌ Failed to update Excel file for Wedding ${weddingId}`);
     } else {
-      console.log('✅ Excel file updated successfully');
+      console.log(`✅ Excel file updated successfully for Wedding ${weddingId}`);
     }
     
     // Upload to Google Drive
-    console.log('\n☁️ Uploading to Google Drive...');
-    const driveResult = await uploadExcelToDrive();
+    console.log(`\n☁️ Uploading to Google Drive for Wedding ${weddingId}...`);
+    const driveResult = await uploadExcelToDrive(weddingId);
     if (!driveResult.success) {
-      console.error('❌ Failed to upload to Google Drive:', driveResult.error);
+      console.error(`❌ Failed to upload to Google Drive for Wedding ${weddingId}:`, driveResult.error);
     } else {
-      console.log('✅ Successfully uploaded to Google Drive');
+      console.log(`✅ Successfully uploaded to Google Drive for Wedding ${weddingId}`);
     }
     
-    console.log('\n🎉 RSVP SUBMISSION COMPLETE - Serial No:', rsvpEntry.serialNo);
+    console.log(`\n🎉 RSVP SUBMISSION COMPLETE for Wedding ${weddingId} - Serial No:`, rsvpEntry.serialNo);
     console.log('===================================\n');
     
     res.json({ 
       success: true, 
-      message: 'RSVP submitted successfully',
+      message: `RSVP submitted successfully for Wedding ${weddingId}`,
+      weddingId: weddingId,
       serialNo: rsvpEntry.serialNo,
       driveLink: driveResult.success ? driveResult.webViewLink : null
     });
@@ -422,13 +447,25 @@ if (requiresGuests) {
   }
 });
 
-// Get all RSVPs
+// Get all RSVPs for a wedding
 app.get('/api/rsvp/all', async (req, res) => {
   try {
+    const weddingId = req.query.weddingId || '1';
+    
+    if (!weddingData[weddingId]) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid wedding ID: ${weddingId}`
+      });
+    }
+    
+    const wedding = weddingData[weddingId];
+    
     res.json({ 
       success: true, 
-      data: rsvpData,
-      count: rsvpData.length
+      weddingId: weddingId,
+      data: wedding.rsvpData,
+      count: wedding.rsvpData.length
     });
   } catch (error) {
     res.status(500).json({ 
@@ -439,17 +476,28 @@ app.get('/api/rsvp/all', async (req, res) => {
   }
 });
 
-// Get statistics
+// Get statistics for a wedding
 app.get('/api/rsvp/stats', async (req, res) => {
   try {
-    const attending = rsvpData.filter(r => r.attending === 'yes').length;
-    const maybe = rsvpData.filter(r => r.attending === 'maybe').length;
-    const notAttending = rsvpData.filter(r => r.attending === 'no').length;
+    const weddingId = req.query.weddingId || '1';
+    
+    if (!weddingData[weddingId]) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid wedding ID: ${weddingId}`
+      });
+    }
+    
+    const wedding = weddingData[weddingId];
+    const attending = wedding.rsvpData.filter(r => r.attending === 'yes').length;
+    const maybe = wedding.rsvpData.filter(r => r.attending === 'maybe').length;
+    const notAttending = wedding.rsvpData.filter(r => r.attending === 'no').length;
     
     res.json({ 
-      success: true, 
+      success: true,
+      weddingId: weddingId,
       stats: {
-        total: rsvpData.length,
+        total: wedding.rsvpData.length,
         attending,
         maybe,
         notAttending
@@ -464,10 +512,22 @@ app.get('/api/rsvp/stats', async (req, res) => {
   }
 });
 
-// Download Excel file
+// Download Excel file for a wedding
 app.get('/api/rsvp/download', async (req, res) => {
   try {
-    res.download(EXCEL_FILE_PATH, EXCEL_FILE_NAME);
+    const weddingId = req.query.weddingId || '1';
+    
+    if (!weddingData[weddingId]) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid wedding ID: ${weddingId}`
+      });
+    }
+    
+    const filePath = getExcelFilePath(weddingId);
+    const fileName = getExcelFileName(weddingId);
+    
+    res.download(filePath, fileName);
   } catch (error) {
     res.status(500).json({ 
       success: false, 
@@ -477,20 +537,33 @@ app.get('/api/rsvp/download', async (req, res) => {
   }
 });
 
-// Get Google Drive link
+// Get Google Drive link for a wedding
 app.get('/api/rsvp/drive-link', async (req, res) => {
   try {
-    if (googleDriveFileId) {
-      const driveLink = `https://drive.google.com/file/d/${googleDriveFileId}/view`;
+    const weddingId = req.query.weddingId || '1';
+    
+    if (!weddingData[weddingId]) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid wedding ID: ${weddingId}`
+      });
+    }
+    
+    const wedding = weddingData[weddingId];
+    
+    if (wedding.googleDriveFileId) {
+      const driveLink = `https://drive.google.com/file/d/${wedding.googleDriveFileId}/view`;
       res.json({
         success: true,
+        weddingId: weddingId,
         driveLink: driveLink,
-        fileId: googleDriveFileId
+        fileId: wedding.googleDriveFileId
       });
     } else {
       res.json({
         success: false,
-        message: 'No file uploaded to Drive yet'
+        weddingId: weddingId,
+        message: `No file uploaded to Drive yet for Wedding ${weddingId}`
       });
     }
   } catch (error) {
@@ -517,7 +590,7 @@ app.get('/webhook', (req, res) => {
   }
 });
 
-// Webhook handler
+// Webhook handler - receives messages for all weddings
 app.post('/webhook', (req, res) => {
   try {
     const msg = handleWebhookMessage(req.body);
@@ -525,17 +598,27 @@ app.post('/webhook', (req, res) => {
     if (msg) {
       console.log("Received WhatsApp message:", msg);
 
-      incomingMessages.unshift({
+      // Extract wedding ID from message if present, default to '1'
+      // You could include wedding ID in the template or parse from message
+      const weddingId = msg.weddingId || '1'; // Default to wedding 1
+
+      const messageData = {
         name: msg.name || 'Unknown',
         phoneNumber: msg.from || 'Unknown',
         messageBody: msg.messageBody || msg.message || msg.text || '',
         timestamp: msg.timestamp ? Number(msg.timestamp) * 1000 : Date.now(),
         messageId: msg.messageId || `msg_${Date.now()}`
-      });
+      };
 
-      if (incomingMessages.length > 100) {
-        incomingMessages = incomingMessages.slice(0, 100);
-      }
+      // Store message for all weddings (since we don't know which wedding the message is for)
+      // In production, you might want to track this based on phone number
+      Object.keys(weddingData).forEach(id => {
+        weddingData[id].incomingMessages.unshift(messageData);
+        
+        if (weddingData[id].incomingMessages.length > 100) {
+          weddingData[id].incomingMessages = weddingData[id].incomingMessages.slice(0, 100);
+        }
+      });
     }
 
     res.sendStatus(200);
@@ -548,7 +631,7 @@ app.post('/webhook', (req, res) => {
 // Send WhatsApp Invitation with optional media
 app.post('/api/whatsapp/send-invitation', upload.single('invitationFile'), async (req, res) => {
   try {
-    const { phoneNumber, guestName, message } = req.body;
+    const { phoneNumber, guestName, message, weddingId = '1' } = req.body;
 
     if (!phoneNumber || !guestName || !message) {
       return res.status(400).json({
@@ -567,7 +650,10 @@ app.post('/api/whatsapp/send-invitation', upload.single('invitationFile'), async
       result = await sendWhatsAppTextMessage(phoneNumber, message);
     }
 
-    res.json(result);
+    res.json({
+      ...result,
+      weddingId: weddingId
+    });
 
   } catch (error) {
     console.error('Error sending invitation:', error);
@@ -582,7 +668,7 @@ app.post('/api/whatsapp/send-invitation', upload.single('invitationFile'), async
 // Send WhatsApp Template Invitation
 app.post('/api/whatsapp/send-template-invitation', async (req, res) => {
   try {
-    const { phoneNumber, guestName, templateName, templateLanguage } = req.body;
+    const { phoneNumber, guestName, templateName, templateLanguage, weddingId = '1' } = req.body;
 
     if (!phoneNumber || !guestName || !templateName) {
       return res.status(400).json({
@@ -591,6 +677,8 @@ app.post('/api/whatsapp/send-template-invitation', async (req, res) => {
       });
     }
 
+    console.log(`Sending template for Wedding ${weddingId} to ${phoneNumber}`);
+
     const result = await sendWhatsAppTemplateInvitation(
       phoneNumber,
       guestName,
@@ -598,7 +686,10 @@ app.post('/api/whatsapp/send-template-invitation', async (req, res) => {
       templateLanguage || 'en'
     );
 
-    return res.json(result);
+    return res.json({
+      ...result,
+      weddingId: weddingId
+    });
 
   } catch (error) {
     console.error("Error sending template invitation:", error);
@@ -612,7 +703,7 @@ app.post('/api/whatsapp/send-template-invitation', async (req, res) => {
 // Send RSVP confirmation
 app.post('/api/whatsapp/send-confirmation', async (req, res) => {
   try {
-    const { phoneNumber, guestName, attending } = req.body;
+    const { phoneNumber, guestName, attending, weddingId = '1' } = req.body;
     
     if (!phoneNumber || !guestName || !attending) {
       return res.status(400).json({
@@ -623,7 +714,10 @@ app.post('/api/whatsapp/send-confirmation', async (req, res) => {
     
     const result = await sendRSVPConfirmation(phoneNumber, guestName, attending);
     
-    res.json(result);
+    res.json({
+      ...result,
+      weddingId: weddingId
+    });
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -633,16 +727,28 @@ app.post('/api/whatsapp/send-confirmation', async (req, res) => {
   }
 });
 
-// GET incoming WhatsApp messages
+// GET incoming WhatsApp messages for a specific wedding
 app.get('/api/whatsapp/incoming-messages', (req, res) => {
   res.set('Cache-Control', 'no-store');
 
   try {
-    console.log(`📨 Fetching messages. Total stored: ${incomingMessages.length}`);
+    const weddingId = req.query.weddingId || '1';
+    
+    if (!weddingData[weddingId]) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid wedding ID: ${weddingId}`
+      });
+    }
+    
+    const wedding = weddingData[weddingId];
+    
+    console.log(`📨 Fetching messages for Wedding ${weddingId}. Total stored: ${wedding.incomingMessages.length}`);
     
     return res.json({
       success: true,
-      messages: incomingMessages
+      weddingId: weddingId,
+      messages: wedding.incomingMessages
     });
   } catch (error) {
     console.error("Error fetching incoming messages:", error);
@@ -657,15 +763,22 @@ app.get('/api/whatsapp/incoming-messages', (req, res) => {
 // Initialize and start server
 async function startServer() {
   try {
-    await initializeExcel();
+    // Initialize Excel files for all weddings
+    await Promise.all([
+      initializeExcel('1'),
+      initializeExcel('2'),
+      initializeExcel('3')
+    ]);
+    
     app.listen(PORT, () => {
-      console.log('\n' + '='.repeat(50));
-      console.log('🎉 Wedding RSVP Backend Server Started');
-      console.log('='.repeat(50));
+      console.log('\n' + '='.repeat(60));
+      console.log('🎉 Wedding RSVP Backend Server Started (Multi-Wedding)');
+      console.log('='.repeat(60));
       console.log(`🌐 Port: ${PORT}`);
+      console.log(`👰 Weddings: 1, 2, 3`);
       console.log(`📱 WhatsApp: ${!!(process.env.META_PHONE_NUMBER_ID && process.env.META_ACCESS_TOKEN) ? 'Configured' : 'Not Configured'}`);
       console.log(`☁️  Google Drive: ${!!(process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH || process.env.GOOGLE_SERVICE_ACCOUNT_KEY) ? 'Configured' : 'Not Configured'}`);
-      console.log('='.repeat(50) + '\n');
+      console.log('='.repeat(60) + '\n');
     });
   } catch (error) {
     console.error('❌ Error starting server:', error);
