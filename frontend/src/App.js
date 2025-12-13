@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import RSVPForm from './components/RSVPForm';
 import AdminPanel from './components/AdminPanel';
 
@@ -8,8 +8,8 @@ function App() {
     <Router>
       <Routes>
         {/* Default routes redirect to wedding 1 */}
-        <Route path="/" element={<RSVPForm weddingId="1" />} />
-        <Route path="/rsvp" element={<RSVPForm weddingId="1" />} />
+        <Route path="/" element={<Navigate to="/rsvp/wedding1" replace />} />
+        <Route path="/rsvp" element={<Navigate to="/rsvp/wedding1" replace />} />
         
         {/* Wedding-specific RSVP routes */}
         <Route path="/rsvp/wedding1" element={<RSVPForm weddingId="1" />} />
