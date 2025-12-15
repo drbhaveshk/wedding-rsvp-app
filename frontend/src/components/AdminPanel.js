@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+console.log('🎉 UPDATED ADMIN PANEL LOADED - Version 2.0');
 import { Upload, Send, Users, CheckCircle, XCircle, Clock, Download, Eye, MessageSquare, RefreshCw } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
